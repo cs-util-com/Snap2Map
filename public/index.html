@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Snap2Map</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
+  <!-- PWA-related meta tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Snap2Map">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* Ensure map fills the screen */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #main-content {
+      flex: 1;
+      position: relative; /* Needed for map and other overlays */
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <div id="app-container">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white p-2 shadow-md z-10">
+      <h1 class="text-xl font-bold text-center">Snap2Map</h1>
+    </header>
+
+    <!-- Global Banner -->
+    <div id="global-banner" class="hidden absolute top-12 left-0 right-0 z-[1002] p-2 text-center text-white transition-opacity duration-300">
+        <p id="global-banner-message"></p>
+    </div>
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="relative">
+      <!-- The map will be initialized here -->
+      <div id="map"></div>
+      <!-- Other UI elements like the map manager will be overlaid or managed here -->
+
+      <!-- FAB to enter Pair Mode -->
+      <button id="add-pair-fab" class="hidden absolute bottom-20 right-4 bg-blue-600 hover:bg-blue-700 text-white font-bold w-14 h-14 rounded-full shadow-lg z-[1000] flex items-center justify-center text-3xl pb-1">
+        +
+      </button>
+    </main>
+
+    <!-- Bottom Tab Bar -->
+    <footer class="bg-white shadow-t-md z-10">
+      <nav class="flex justify-around p-2 border-t">
+        <button id="tab-photo" class="text-blue-600 font-semibold">Photo</button>
+        <button id="tab-osm" class="text-gray-500">OSM</button>
+        <button id="tab-pairs" class="text-gray-500">Pairs</button>
+        <button id="tab-refine" class="text-gray-500">Refine</button>
+        <button id="tab-settings" class="text-gray-500">Settings</button>
+      </nav>
+    </footer>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+  <!-- TPS Refinement Drawer -->
+  <div id="tps-drawer" class="hidden absolute bottom-0 left-0 right-0 bg-white z-[1001] p-4 shadow-2xl rounded-t-lg">
+    <h3 class="text-lg font-bold mb-2">Refine Accuracy (TPS)</h3>
+    <p class="text-sm text-gray-600 mb-4">Adjust the slider to reduce non-linear errors. Lower values are more flexible.</p>
+    <div class="flex items-center mb-4">
+        <label for="tps-slider" class="mr-4">Flexibility:</label>
+        <input type="range" id="tps-slider" min="0" max="100" value="50" class="flex-grow">
+    </div>
+    <div class="text-center mb-4">
+        <p>Map Error: <span id="tps-rmse-before" class="font-mono">--</span>m &rarr; <span id="tps-rmse-after" class="font-mono font-bold text-green-600">--</span>m</p>
+    </div>
+    <div class="flex justify-end gap-4">
+        <button id="tps-cancel" class="px-4 py-2 rounded bg-gray-200">Cancel</button>
+        <button id="tps-apply" class="px-4 py-2 rounded bg-blue-600 text-white">Apply</button>
+    </div>
+  </div>
+
+  <!-- Hidden file input for image import -->
+  <input type="file" id="image-input" accept="image/*" class="hidden">
+  <input type="file" id="bundle-input" accept=".mapbundle" class="hidden">
+
+  <!-- External libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/exifreader@4.21.1/dist/exifreader.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- Main application script -->
+  <script type="module" src="../src/index.js"></script>
+</body>
+</html>
