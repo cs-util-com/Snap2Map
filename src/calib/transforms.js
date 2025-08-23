@@ -12,13 +12,11 @@
  */
 function normalizePoints(points) {
   const n = points.length;
-  const { sum, sumSq } = points.reduce((acc, p) => {
+  const { sum } = points.reduce((acc, p) => {
     acc.sum.x += p.x;
     acc.sum.y += p.y;
-    acc.sumSq.x += p.x * p.x;
-    acc.sumSq.y += p.y * p.y;
     return acc;
-  }, { sum: { x: 0, y: 0 }, sumSq: { x: 0, y: 0 } });
+  }, { sum: { x: 0, y: 0 } });
 
   const centroid = { x: sum.x / n, y: sum.y / n };
 

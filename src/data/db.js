@@ -271,8 +271,8 @@ export function saveMap(mapData, imageBlob) {
     const mapsStore = transaction.objectStore('maps');
     const blobsStore = transaction.objectStore('blobs');
 
-    const mapRequest = mapsStore.add(newMapRecord);
-    const blobRequest = blobsStore.add(blobRecord);
+    mapsStore.add(newMapRecord);
+    blobsStore.add(blobRecord);
 
     transaction.oncomplete = () => {
       console.log(`Map ${mapId} and blob ${blobId} saved successfully.`);

@@ -5,7 +5,7 @@
 
 import { processAndDisplayImage } from '../util/image.js';
 import { exportAllData, importData } from '../util/bundle.js';
-import { enableMarkerPlacement, disableMarkerPlacement, clearTemporaryMarkers, displayImageOnMap, updateUserPosition, showOsmMap } from '../leaflet/map.js';
+import { enableMarkerPlacement, disableMarkerPlacement, clearTemporaryMarkers, displayImageOnMap, updateUserPosition } from '../leaflet/map.js';
 import { savePair, getPairsForMap, getBlob, getAllMaps, getMap } from '../data/db.js';
 import * as pairState from '../calib/pairState.js';
 import { getCurrentPosition, startWatchingPosition } from '../gps/gps.js';

@@ -7,75 +7,15 @@ import * as pairState from '../calib/pairState.js';
 
 let osmTileLayer = null;
 let imageOverlay = null;
-
-export function initializeMap(containerId) {
-  // ... (unchanged)
-}
-
-export function displayImageOnMap(map, imageUrl, dimensions) {
-  // ... (unchanged)
-}
-
-export function showOsmMap(map) {
-  // ... (unchanged)
-}
-
-// --- Marker Placement for Pair Mode ---
-
-let onMapClickHandler = null;
-
-function onMapClick(e, activeView) {
-  console.log(`Map clicked in Pair Mode on ${activeView} view at:`, e.latlng);
-  const marker = L.marker(e.latlng, { draggable: true }).addTo(this);
-
-  if (activeView === 'photo') {
-    pairState.setPixel(e.latlng, marker);
-  } else { // 'osm'
-    pairState.setWgs84(e.latlng, marker);
-  }
-}
-
-export function enableMarkerPlacement(map, activeView) {
-  if (!map) return;
-  onMapClickHandler = (e) => onMapClick.call(map, e, activeView);
-  map.on('click', onMapClickHandler);
-  map.getContainer().style.cursor = 'crosshair';
-  console.log(`Marker placement enabled for ${activeView} view.`);
-}
-
-export function disableMarkerPlacement(map) {
-  if (!map || !onMapClickHandler) return;
-  map.off('click', onMapClickHandler);
-  onMapClickHandler = null;
-  map.getContainer().style.cursor = '';
-  console.log('Marker placement disabled.');
-}
-
-export function clearTemporaryMarkers(map, markers) {
-    markers.forEach(marker => {
-        if (marker) {
-            map.removeLayer(marker);
-        }
-    });
-}
-
-
-// --- Live Position Display ---
 let userMarker = null;
 let accuracyCircle = null;
+let onMapClickHandler = null;
 
-export function updateUserPosition(map, pixel, radiusInPixels, color) {
-    // ... (unchanged)
-}
-
-// NOTE: I'm only showing the changed/new parts. The final file will be a full rewrite.
-// For now, I'll just paste the full content again.
 export function initializeMap(containerId) {
   if (!L) {
     console.error("Leaflet library (L) is not loaded.");
     return null;
   }
-
   try {
     const map = L.map(containerId, {
       zoomControl: false,
@@ -85,7 +25,6 @@ export function initializeMap(containerId) {
     osmTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
     });
-
     osmTileLayer.addTo(map);
 
     L.control.attribution({ position: 'bottomright', prefix: false })
@@ -101,57 +40,64 @@ export function initializeMap(containerId) {
 }
 
 export function displayImageOnMap(map, imageUrl, dimensions) {
-  if (osmTileLayer) {
-    map.removeLayer(osmTileLayer);
-  }
-  if (imageOverlay) {
-    map.removeLayer(imageOverlay);
-  }
+  if (osmTileLayer) map.removeLayer(osmTileLayer);
+  if (imageOverlay) map.removeLayer(imageOverlay);
 
   map.options.crs = L.CRS.Simple;
-
   const { width, height } = dimensions;
   const bounds = [[0, 0], [height, width]];
-
   imageOverlay = L.imageOverlay(imageUrl, bounds);
   imageOverlay.addTo(map);
-
   map.fitBounds(bounds);
-  console.log("Map view updated to show image overlay.");
 }
 
 export function showOsmMap(map) {
-  if (imageOverlay) {
-    map.removeLayer(imageOverlay);
-  }
-
+  if (imageOverlay) map.removeLayer(imageOverlay);
   map.options.crs = L.CRS.EPSG3857;
+  if (osmTileLayer) osmTileLayer.addTo(map);
+}
 
-  if (osmTileLayer) {
-    osmTileLayer.addTo(map);
+function onMapClick(e, activeView) {
+  const marker = L.marker(e.latlng, { draggable: true }).addTo(this);
+  if (activeView === 'photo') {
+    pairState.setPixel(e.latlng, marker);
+  } else {
+    pairState.setWgs84(e.latlng, marker);
   }
+}
+
+export function enableMarkerPlacement(map, activeView) {
+  if (!map) return;
+  onMapClickHandler = (e) => onMapClick.call(map, e, activeView);
+  map.on('click', onMapClickHandler);
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+export function disableMarkerPlacement(map) {
+  if (!map || !onMapClickHandler) return;
+  map.off('click', onMapClickHandler);
+  onMapClickHandler = null;
+  map.getContainer().style.cursor = '';
+}
+
+export function clearTemporaryMarkers(map, markers) {
+  markers.forEach(marker => {
+    if (marker) map.removeLayer(marker);
+  });
 }
 
 export function updateUserPosition(map, pixel, radiusInPixels, color) {
   const latLng = map.unproject([pixel.x, pixel.y], map.getMaxZoom());
-
   if (!userMarker) {
     userMarker = L.marker(latLng).addTo(map);
   } else {
     userMarker.setLatLng(latLng);
   }
-
   if (!accuracyCircle) {
     accuracyCircle = L.circle(latLng, {
-      radius: radiusInPixels,
-      color: color,
-      fillColor: color,
-      fillOpacity: 0.2,
-      weight: 2,
+      radius: radiusInPixels, color, fillColor: color, fillOpacity: 0.2, weight: 2,
     }).addTo(map);
   } else {
-    accuracyCircle.setLatLng(latLng);
-    accuracyCircle.setRadius(radiusInPixels);
-    accuracyCircle.setStyle({ color: color, fillColor: color });
+    accuracyCircle.setLatLng(latLng).setRadius(radiusInPixels).setStyle({ color, fillColor: color });
   }
 }

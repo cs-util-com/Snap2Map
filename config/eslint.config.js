@@ -12,6 +12,10 @@ module.exports = [
         ...globals.browser,
         ...globals.jest,
         ...globals.node,
+        'math': 'readonly',
+        'L': 'readonly',
+        'JSZip': 'readonly',
+        'ExifReader': 'readonly'
       },
     },
     rules: {

@@ -3,10 +3,9 @@
  * @description Main application entry point for Snap2Map.
  */
 
-import { initializeMap, updateUserPosition } from './leaflet/map.js';
+import { initializeMap } from './leaflet/map.js';
 import { initializeUI, showMapManager } from './ui/ui.js';
 import { initDB, getAllMaps } from './data/db.js';
-import { startWatchingPosition } from './gps/gps.js';
 import { CalibrationModel } from './calib/model.js';
 
 /**

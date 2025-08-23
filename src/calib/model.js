@@ -3,7 +3,7 @@
  * @description The main calibration model that orchestrates the fitting process and coordinate projections.
  */
 
-import { projectToEnu, unprojectFromEnu } from '../util/coords.js';
+import { projectToEnu } from '../util/coords.js';
 import { ransac, irls } from './robust.js';
 import { RefinerTPS } from './tps.js';
 
