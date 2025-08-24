@@ -76,14 +76,6 @@ export function projectToEnu(point, origin) {
 function enuToEcef(enu, origin) {
   const originEcef = wgs84ToEcef(origin.lat, origin.lon, origin.alt);
 
-  const latRad = origin.lat * (Math.PI / 180);
-  const lonRad = origin.lon * (Math.PI / 180);
-
-  const cosLat = Math.cos(latRad);
-  const sinLat = Math.sin(latRad);
-  const cosLon = Math.cos(lonRad);
-  const sinLon = Math.sin(lonRad);
-
   const t = trigForOrigin(origin);
   const dx = -t.sinLon * enu.x - t.sinLat * t.cosLon * enu.y + t.cosLat * t.cosLon * enu.z;
   const dy = t.cosLon * enu.x - t.sinLat * t.sinLon * enu.y + t.cosLat * t.sinLon * enu.z;
