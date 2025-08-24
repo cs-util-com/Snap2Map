@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snap2Map - Map</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script type="module">
+    import { renderMapDetail } from '../src/ui/map-detail.js';
+    import { mapStore } from '../src/data/store.js';
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMapDetail(document.getElementById('app'), id, { store: mapStore });
+    });
+  </script>
+</head>
+<body class="font-mono p-4 bg-gray-50">
+  <a href="../index.html" class="underline">← Back</a>
+  <div id="app" class="mt-4"></div>
+</body>
+</html>

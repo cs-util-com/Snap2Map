@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snap2Map - Settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { renderSettings } from '../src/ui/settings.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      renderSettings(document.getElementById('app'));
+    });
+  </script>
+</head>
+<body class="font-mono p-4 bg-gray-50">
+  <a href="../index.html" class="underline">← Back</a>
+  <div id="app" class="mt-4"></div>
+</body>
+</html>

@@ -1,12 +1,9 @@
-// This is a placeholder test file for index.js.
-// Since index.js currently only has a console.log,
-// a meaningful test isn't really possible without
-// more complex setup (e.g., mocking console.log or
-// integrating with an HTML environment if it manipulates the DOM).
+jest.mock('./ui/map-manager.js', () => ({ renderMapManager: jest.fn() }));
+import { renderMapManager } from './ui/map-manager.js';
 
-describe('Index', () => {
-  test('placeholder test', () => {
-    // Replace with actual tests once index.js has testable logic
-    expect(true).toBe(true);
-  });
+test('renders map manager on DOMContentLoaded', () => {
+  document.body.innerHTML = '<div id="app"></div>';
+  require('./index.js');
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  expect(renderMapManager).toHaveBeenCalledWith(document.getElementById('app'));
 });
