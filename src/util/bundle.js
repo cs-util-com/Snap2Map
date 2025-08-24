@@ -3,7 +3,8 @@
  * @description Handles exporting and importing map data as .mapbundle files.
  */
 
-import { getAllMaps, getAllPairs, getAllCalibrations, getBlob, putMap, putPair, putCalibration, putBlob } from '../data/db.js';
+// Data functions are imported dynamically at runtime to avoid static layering
+// violations. This keeps util layer free of direct static dependencies on data.
 
 /**
  * Triggers a browser download for a given blob.
@@ -35,9 +36,10 @@ export async function exportAllData() {
     const zip = new JSZip();
 
     // 1. Get all data from IndexedDB
-    const maps = await getAllMaps();
-    const allPairs = await getAllPairs();
-    const allCalibrations = await getAllCalibrations();
+  const db = await import('../data/db.js');
+  const maps = await db.getAllMaps();
+  const allPairs = await db.getAllPairs();
+  const allCalibrations = await db.getAllCalibrations();
 
     const metaData = {
       version: 1,
@@ -53,7 +55,7 @@ export async function exportAllData() {
     // 3. Add all blobs to the zip
     const blobFolder = zip.folder("blobs");
     for (const map of maps) {
-      const blobData = await getBlob(map.photoBlobId);
+  const blobData = await db.getBlob(map.photoBlobId);
       if (blobData) {
         blobFolder.file(map.photoBlobId, blobData.bytes);
       }
@@ -95,15 +97,16 @@ export async function importData(file) {
 
         console.log(`Importing ${metaData.maps.length} maps, ${metaData.pairs.length} pairs...`);
 
-        for (const map of metaData.maps) {
-            await putMap(map);
-        }
-        for (const pair of metaData.pairs) {
-            await putPair(pair);
-        }
-        for (const cal of metaData.calibrations) {
-            await putCalibration(cal);
-        }
+    const { putMap, putPair, putCalibration, putBlob } = db;
+    for (const map of metaData.maps) {
+      await putMap(map);
+    }
+    for (const pair of metaData.pairs) {
+      await putPair(pair);
+    }
+    for (const cal of metaData.calibrations) {
+      await putCalibration(cal);
+    }
 
         const blobFolder = zip.folder("blobs");
         if (blobFolder) {

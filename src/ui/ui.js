@@ -207,13 +207,22 @@ export function initializeUI(map, model) {
   document.getElementById('image-input').addEventListener('change', async (e) => {
     try {
       const result = await processAndDisplayImage(e.target.files[0], map);
-      if (result) {
-        // result contains newMapId and imageUrl per the util change
-        setMapTabsEnabled(true);
-        setFabVisible(true);
-        setCurrentMap(result.newMapId);
-        hideMapManager();
-      }
+      if (!result) return;
+
+      // Display the processed image on the map (leaflet map integration)
+      // Import the map display function at runtime to avoid layering issues.
+      const { displayImageOnMap } = await import('../leaflet/map.js');
+      displayImageOnMap(map, result.imageUrl, result.pixelSize);
+
+      // Save the map blob and metadata via the data layer
+      const { saveMap } = await import('../data/db.js');
+      const mapData = { name: result.name, pixelSize: result.pixelSize };
+      const newMapId = await saveMap(mapData, result.blob);
+
+      setMapTabsEnabled(true);
+      setFabVisible(true);
+      setCurrentMap(newMapId);
+      hideMapManager();
     } catch (err) {
       console.error('Failed processing image in UI handler:', err);
     }

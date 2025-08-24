@@ -3,8 +3,8 @@
  * @description Handles image processing: EXIF parsing, orientation correction, and resizing.
  */
 
-import { displayImageOnMap } from '../leaflet/map.js';
-import { saveMap } from '../data/db.js';
+// Note: this util module intentionally does not import UI or data modules to
+// respect layering rules. It only processes the image and returns results.
 
 const MAX_IMAGE_DIMENSION = 4096; // Max width or height for the processed image
 
@@ -56,20 +56,13 @@ export async function processAndDisplayImage(file, map) {
     const imageUrl = URL.createObjectURL(blob);
     console.log(`Processed image created. Size: ${Math.round(blob.size / 1024)} KB`);
 
-    // 4. Display the image on the map
-    displayImageOnMap(map, imageUrl, { width: newWidth, height: newHeight });
-
-  // 5. Save the new map to the database
-    const mapData = {
-      name: file.name.replace(/\.[^/.]+$/, ""), // Use filename as default name
+    // 4. Return the processed data and blob for the caller to persist/display.
+    return {
+      blob,
+      imageUrl,
       pixelSize: { w: newWidth, h: newHeight },
+      name: file.name.replace(/\.[^/.]+$/, ""),
     };
-  const newMapId = await saveMap(mapData, blob);
-  console.log(`New map saved with ID: ${newMapId}`);
-
-  // Return the important results so the caller (UI) can update state without
-  // importing UI utilities here. This avoids a circular dependency.
-  return { newMapId, imageUrl };
 
   } catch (error) {
     console.error('Error during image processing:', error);
