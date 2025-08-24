@@ -204,7 +204,20 @@ function handleTabClick(event) {
 export function initializeUI(map, model) {
   appState.map = map;
   appState.model = model;
-  document.getElementById('image-input').addEventListener('change', (e) => processAndDisplayImage(e.target.files[0], map));
+  document.getElementById('image-input').addEventListener('change', async (e) => {
+    try {
+      const result = await processAndDisplayImage(e.target.files[0], map);
+      if (result) {
+        // result contains newMapId and imageUrl per the util change
+        setMapTabsEnabled(true);
+        setFabVisible(true);
+        setCurrentMap(result.newMapId);
+        hideMapManager();
+      }
+    } catch (err) {
+      console.error('Failed processing image in UI handler:', err);
+    }
+  });
   document.getElementById('bundle-input').addEventListener('change', (e) => importData(e.target.files[0]));
   document.getElementById('add-pair-fab').addEventListener('click', enterPairMode);
   document.querySelectorAll('footer nav button').forEach(tab => tab.addEventListener('click', handleTabClick));

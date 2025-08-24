@@ -42,22 +42,14 @@ function wgs84ToEcef(lat, lon, alt = 0) {
  */
 function ecefToEnu(ecef, origin) {
   const originEcef = wgs84ToEcef(origin.lat, origin.lon, origin.alt);
-
   const dx = ecef.x - originEcef.x;
   const dy = ecef.y - originEcef.y;
   const dz = ecef.z - originEcef.z;
+  const t = trigForOrigin(origin);
 
-  const latRad = origin.lat * (Math.PI / 180);
-  const lonRad = origin.lon * (Math.PI / 180);
-
-  const cosLat = Math.cos(latRad);
-  const sinLat = Math.sin(latRad);
-  const cosLon = Math.cos(lonRad);
-  const sinLon = Math.sin(lonRad);
-
-  const e = -sinLon * dx + cosLon * dy;
-  const n = -sinLat * cosLon * dx - sinLat * sinLon * dy + cosLat * dz;
-  const u = cosLat * cosLon * dx + cosLat * sinLon * dy + sinLat * dz;
+  const e = -t.sinLon * dx + t.cosLon * dy;
+  const n = -t.sinLat * t.cosLon * dx - t.sinLat * t.sinLon * dy + t.cosLat * dz;
+  const u = t.cosLat * t.cosLon * dx + t.cosLat * t.sinLon * dy + t.sinLat * dz;
 
   return { x: e, y: n, z: u };
 }
@@ -92,9 +84,10 @@ function enuToEcef(enu, origin) {
   const cosLon = Math.cos(lonRad);
   const sinLon = Math.sin(lonRad);
 
-  const dx = -sinLon * enu.x - sinLat * cosLon * enu.y + cosLat * cosLon * enu.z;
-  const dy = cosLon * enu.x - sinLat * sinLon * enu.y + cosLat * sinLon * enu.z;
-  const dz = cosLat * enu.y + sinLat * enu.z;
+  const t = trigForOrigin(origin);
+  const dx = -t.sinLon * enu.x - t.sinLat * t.cosLon * enu.y + t.cosLat * t.cosLon * enu.z;
+  const dy = t.cosLon * enu.x - t.sinLat * t.sinLon * enu.y + t.cosLat * t.sinLon * enu.z;
+  const dz = t.cosLat * enu.y + t.sinLat * enu.z;
 
   return {
     x: originEcef.x + dx,
@@ -129,6 +122,19 @@ function ecefToWgs84(ecef) {
     lat: lat * (180 / Math.PI),
     lon: lon * (180 / Math.PI),
     alt: alt,
+  };
+}
+
+function trigForOrigin(origin) {
+  const latRad = origin.lat * (Math.PI / 180);
+  const lonRad = origin.lon * (Math.PI / 180);
+  return {
+    latRad,
+    lonRad,
+    cosLat: Math.cos(latRad),
+    sinLat: Math.sin(latRad),
+    cosLon: Math.cos(lonRad),
+    sinLon: Math.sin(lonRad),
   };
 }
 

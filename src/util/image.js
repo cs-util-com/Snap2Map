@@ -4,7 +4,6 @@
  */
 
 import { displayImageOnMap } from '../leaflet/map.js';
-import { hideMapManagerEmptyState, setMapTabsEnabled, setFabVisible, setCurrentMap } from '../ui/ui.js';
 import { saveMap } from '../data/db.js';
 
 const MAX_IMAGE_DIMENSION = 4096; // Max width or height for the processed image
@@ -49,20 +48,8 @@ export async function processAndDisplayImage(file, map) {
     canvas.width = newWidth;
     canvas.height = newHeight;
 
-    // Apply EXIF orientation transformation
-    // See: https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/transform
-    switch (orientation) {
-      case 2: ctx.transform(-1, 0, 0, 1, newWidth, 0); break;
-      case 3: ctx.transform(-1, 0, 0, -1, newWidth, newHeight); break;
-      case 4: ctx.transform(1, 0, 0, -1, 0, newHeight); break;
-      case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
-      case 6: ctx.transform(0, 1, -1, 0, newHeight, 0); break;
-      case 7: ctx.transform(0, -1, -1, 0, newHeight, newWidth); break;
-      case 8: ctx.transform(0, -1, 1, 0, 0, newWidth); break;
-      default: break; // case 1, no transform needed
-    }
-
-    ctx.drawImage(imageBitmap, 0, 0, imageBitmap.width, imageBitmap.height);
+  // Apply EXIF orientation transformation and draw image
+  applyExifOrientationTransform(ctx, orientation, newWidth, newHeight, imageBitmap);
 
     // 3. Get the processed image as a WebP Blob
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.9));
@@ -72,22 +59,40 @@ export async function processAndDisplayImage(file, map) {
     // 4. Display the image on the map
     displayImageOnMap(map, imageUrl, { width: newWidth, height: newHeight });
 
-    // 5. Save the new map to the database
+  // 5. Save the new map to the database
     const mapData = {
       name: file.name.replace(/\.[^/.]+$/, ""), // Use filename as default name
       pixelSize: { w: newWidth, h: newHeight },
     };
-    const newMapId = await saveMap(mapData, blob);
-    console.log(`New map saved with ID: ${newMapId}`);
+  const newMapId = await saveMap(mapData, blob);
+  console.log(`New map saved with ID: ${newMapId}`);
 
-    // 6. Update the UI
-    hideMapManagerEmptyState();
-    setMapTabsEnabled(true);
-    setFabVisible(true);
-    setCurrentMap(newMapId);
+  // Return the important results so the caller (UI) can update state without
+  // importing UI utilities here. This avoids a circular dependency.
+  return { newMapId, imageUrl };
 
   } catch (error) {
     console.error('Error during image processing:', error);
     // TODO: Show a user-facing error message.
   }
+}
+
+/**
+ * Applies EXIF-based canvas transforms and draws the image to the canvas.
+ * Extracted to reduce complexity of the main async function.
+ */
+function applyExifOrientationTransform(ctx, orientation, newWidth, newHeight, imageBitmap) {
+  // See: https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/transform
+  switch (orientation) {
+    case 2: ctx.transform(-1, 0, 0, 1, newWidth, 0); break;
+    case 3: ctx.transform(-1, 0, 0, -1, newWidth, newHeight); break;
+    case 4: ctx.transform(1, 0, 0, -1, 0, newHeight); break;
+    case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+    case 6: ctx.transform(0, 1, -1, 0, newHeight, 0); break;
+    case 7: ctx.transform(0, -1, -1, 0, newHeight, newWidth); break;
+    case 8: ctx.transform(0, -1, 1, 0, 0, newWidth); break;
+    default: break; // case 1, no transform needed
+  }
+
+  ctx.drawImage(imageBitmap, 0, 0, imageBitmap.width, imageBitmap.height);
 }

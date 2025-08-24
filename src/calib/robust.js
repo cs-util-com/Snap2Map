@@ -4,6 +4,7 @@
  */
 
 import { fitSimilarity, fitAffine, fitHomography } from './transforms.js';
+import { projectPoint } from './common.js';
 
 /**
  * Selects a random subset of elements from an array.
@@ -36,17 +37,6 @@ function distance(p1, p2) {
   return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
 }
 
-/**
- * Projects a point using a given transformation matrix.
- * @param {{x: number, y: number}} point - The point to project.
- * @param {math.Matrix} H - The 3x3 transformation matrix.
- * @returns {{x: number, y: number}} The projected point.
- */
-function projectPoint(point, H) {
-  const p = [point.x, point.y, 1];
-  const p_prime = math.multiply(H, p).toArray();
-  return { x: p_prime[0] / p_prime[2], y: p_prime[1] / p_prime[2] };
-}
 
 /**
  * Finds the best-fit transformation using the RANSAC algorithm.
