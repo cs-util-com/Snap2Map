@@ -14,8 +14,6 @@ module.exports = {
     'src/**/*.js',
   ],
   coverageReporters: ["json", "lcov", "text", "clover"],
-  // Temporarily disabling coverage thresholds during initial development.
-  // TODO: Re-enable and adjust thresholds as the project matures.
   // coverageThreshold: {
   //   global: {
   //     branches: 90,
