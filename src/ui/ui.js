@@ -57,7 +57,10 @@ export async function showMapManager() {
   mainContent.insertAdjacentHTML('beforeend', managerHTML);
   document.getElementById('import-photo-btn')?.addEventListener('click', () => document.getElementById('image-input').click());
   document.getElementById('import-another-btn')?.addEventListener('click', () => document.getElementById('image-input').click());
-  document.getElementById('export-all-btn')?.addEventListener('click', exportAllData);
+  document.getElementById('export-all-btn')?.addEventListener('click', async () => {
+    const db = await import('../data/db.js');
+    exportAllData(db);
+  });
   document.getElementById('import-bundle-btn')?.addEventListener('click', () => document.getElementById('bundle-input').click());
   document.querySelectorAll('.map-card').forEach(card => {
     card.addEventListener('click', () => loadAndDisplayMap(card.dataset.mapId));
@@ -206,7 +209,7 @@ export function initializeUI(map, model) {
   appState.model = model;
   document.getElementById('image-input').addEventListener('change', async (e) => {
     try {
-      const result = await processAndDisplayImage(e.target.files[0], map);
+      const result = await processAndDisplayImage(e.target.files[0]);
       if (!result) return;
 
       // Display the processed image on the map (leaflet map integration)
@@ -227,7 +230,11 @@ export function initializeUI(map, model) {
       console.error('Failed processing image in UI handler:', err);
     }
   });
-  document.getElementById('bundle-input').addEventListener('change', (e) => importData(e.target.files[0]));
+  document.getElementById('bundle-input').addEventListener('change', async (e) => {
+    const db = await import('../data/db.js');
+    importData.dbProvider = db;
+    importData(e.target.files[0]);
+  });
   document.getElementById('add-pair-fab').addEventListener('click', enterPairMode);
   document.querySelectorAll('footer nav button').forEach(tab => tab.addEventListener('click', handleTabClick));
   document.getElementById('tab-refine').addEventListener('click', showTpsDrawer);

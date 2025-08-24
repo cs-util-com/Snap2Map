@@ -13,7 +13,7 @@ const MAX_IMAGE_DIMENSION = 4096; // Max width or height for the processed image
  * @param {File} file - The image file to process.
  * @param {L.Map} map - The Leaflet map instance.
  */
-export async function processAndDisplayImage(file, map) {
+export async function processAndDisplayImage(file) {
   if (!file.type.startsWith('image/')) {
     console.error('Selected file is not an image.', file);
     // TODO: Show a user-facing error message

@@ -25,21 +25,22 @@ function triggerDownload(blob, filename) {
 /**
  * Exports all user data into a single .mapbundle file.
  */
-export async function exportAllData() {
+export async function exportAllData(dbProvider) {
   if (!window.JSZip) {
     alert("JSZip library not found. Export failed.");
     return;
   }
 
+  if (!dbProvider) throw new Error('exportAllData requires a dbProvider with getAllMaps/getAllPairs/getAllCalibrations/getBlob');
+
   console.log("Starting export process...");
   try {
     const zip = new JSZip();
 
-    // 1. Get all data from IndexedDB
-  const db = await import('../data/db.js');
-  const maps = await db.getAllMaps();
-  const allPairs = await db.getAllPairs();
-  const allCalibrations = await db.getAllCalibrations();
+    // 1. Get all data from IndexedDB via provided dbProvider
+    const maps = await dbProvider.getAllMaps();
+    const allPairs = await dbProvider.getAllPairs();
+    const allCalibrations = await dbProvider.getAllCalibrations();
 
     const metaData = {
       version: 1,
@@ -55,7 +56,7 @@ export async function exportAllData() {
     // 3. Add all blobs to the zip
     const blobFolder = zip.folder("blobs");
     for (const map of maps) {
-  const blobData = await db.getBlob(map.photoBlobId);
+      const blobData = await dbProvider.getBlob(map.photoBlobId);
       if (blobData) {
         blobFolder.file(map.photoBlobId, blobData.bytes);
       }
@@ -84,8 +85,8 @@ export async function exportAllData() {
  * @param {File} file - The .mapbundle file to import.
  */
 export async function importData(file) {
-    if (!window.JSZip) return alert("JSZip library not found.");
-    if (!file.name.endsWith('.mapbundle')) return alert("Invalid file type. Please select a .mapbundle file.");
+  if (!window.JSZip) return alert("JSZip library not found.");
+  if (!file.name.endsWith('.mapbundle')) return alert("Invalid file type. Please select a .mapbundle file.");
 
     console.log("Starting import process...");
     try {
@@ -97,16 +98,20 @@ export async function importData(file) {
 
         console.log(`Importing ${metaData.maps.length} maps, ${metaData.pairs.length} pairs...`);
 
-    const { putMap, putPair, putCalibration, putBlob } = db;
-    for (const map of metaData.maps) {
-      await putMap(map);
-    }
-    for (const pair of metaData.pairs) {
-      await putPair(pair);
-    }
-    for (const cal of metaData.calibrations) {
-      await putCalibration(cal);
-    }
+        // The caller must provide a db provider via importData.dbProvider before calling
+        const dbProvider = importData.dbProvider;
+        if (!dbProvider) throw new Error('importData requires importData.dbProvider to be set to a db provider with putMap/putPair/putCalibration/putBlob');
+
+        const { putMap, putPair, putCalibration, putBlob } = dbProvider;
+        for (const map of metaData.maps) {
+          await putMap(map);
+        }
+        for (const pair of metaData.pairs) {
+          await putPair(pair);
+        }
+        for (const cal of metaData.calibrations) {
+          await putCalibration(cal);
+        }
 
         const blobFolder = zip.folder("blobs");
         if (blobFolder) {
