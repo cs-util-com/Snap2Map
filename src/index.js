@@ -234,18 +234,18 @@ function renderPairList() {
 
   state.pairs.forEach((pair, index) => {
     const row = document.createElement('tr');
-    row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+    row.className = index % 2 === 0 ? 'bg-slate-900/40' : 'bg-slate-900/20';
     const residual = state.calibration && state.calibration.residuals ? state.calibration.residuals[index] : null;
     const inlier = state.calibration && state.calibration.inliers ? state.calibration.inliers[index] : false;
     const indicatorClass = !state.calibration ? 'bg-blue-500' : inlier ? 'bg-green-500' : 'bg-red-500';
     const indicator = `<span class="inline-block w-2 h-2 rounded-full ${indicatorClass}"></span>`;
 
     row.innerHTML = `
-      <td class="px-3 py-2 text-sm text-gray-700 space-x-2">${indicator}<span>${pair.pixel.x.toFixed(1)}, ${pair.pixel.y.toFixed(1)}</span></td>
-      <td class="px-3 py-2 text-sm text-gray-700">${formatLatLon(pair.wgs84.lat, 'N', 'S')} · ${formatLatLon(pair.wgs84.lon, 'E', 'W')}</td>
-      <td class="px-3 py-2 text-sm text-gray-700">${residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—'}</td>
-      <td class="px-3 py-2 text-right">
-        <button class="text-sm text-red-600 hover:underline" data-action="delete" data-index="${index}">Remove</button>
+      <td class="px-4 py-3 text-sm text-slate-200 space-x-2">${indicator}<span>${pair.pixel.x.toFixed(1)}, ${pair.pixel.y.toFixed(1)}</span></td>
+      <td class="px-4 py-3 text-sm text-slate-200">${formatLatLon(pair.wgs84.lat, 'N', 'S')} · ${formatLatLon(pair.wgs84.lon, 'E', 'W')}</td>
+      <td class="px-4 py-3 text-sm text-slate-200">${residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—'}</td>
+      <td class="px-4 py-3 text-right">
+        <button class="text-sm font-semibold text-rose-300 hover:text-rose-200" data-action="delete" data-index="${index}">Remove</button>
       </td>`;
 
     dom.pairTableBody.appendChild(row);
@@ -264,7 +264,7 @@ function updateGpsStatus(message, isError) {
     return;
   }
   dom.gpsStatus.textContent = message;
-  dom.gpsStatus.className = isError ? 'text-sm text-red-600' : 'text-sm text-slate-600';
+  dom.gpsStatus.className = isError ? 'text-sm text-rose-400' : 'text-sm text-slate-200';
 }
 
 function updateLivePosition() {
