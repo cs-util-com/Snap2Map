@@ -16,6 +16,10 @@ module.exports = {
     // Use a double-escaped dot so the regex sees a literal dot and ESLint doesn't flag a useless escape
     '^.+\\.js$': ['babel-jest', { configFile: require.resolve('./babel.config.js') }],
   },
+  moduleNameMapper: {
+    '^snap2map/index$': '<rootDir>/src/index.js',
+    '^snap2map/calibrator$': '<rootDir>/src/calibration/calibrator.js',
+  },
   coverageReporters: ["json", "lcov", "text", "clover"],
   coverageThreshold: {
     global: {

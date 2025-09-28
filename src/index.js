@@ -25,9 +25,13 @@ const state = {
   osmActiveMarker: null,
   userMarker: null,
   accuracyCircle: null,
+  osmLocateControl: null,
+  osmLocateHandlersAttached: false,
   geoWatchId: null,
   lastPosition: null,
   lastGpsUpdate: null,
+  // Prompt geolocation when OSM tab opened the first time
+  osmGeoPrompted: false,
   guidedPairing: {
     active: false,
     targetCount: GUIDED_PAIR_TARGET,
@@ -143,6 +147,8 @@ function finalizeMapSelection() {
 
   if (guidedMapStep) {
     maybeAutoCompleteGuidedPair();
+  } else if (!isGuidedActive()) {
+    showToast('Pair ready — tap "Confirm pair" to save it.');
   }
 }
 
@@ -428,6 +434,9 @@ function beginPairMode() {
   clearActivePairMarkers();
   updatePairStatus();
   dom.addPairButton.disabled = true;
+  if (!isGuidedActive()) {
+    showToast('Tap the photo to drop the pixel anchor.');
+  }
 }
 
 function cancelPairMode() {
@@ -493,6 +502,15 @@ function confirmPair() {
   recalculateCalibration();
 
   const savedIndex = state.pairs.length - 1;
+  if (!isGuidedActive()) {
+    const residual =
+      state.calibration && Array.isArray(state.calibration.residuals)
+        ? state.calibration.residuals[savedIndex]
+        : null;
+    const residualText = residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—';
+    const tone = residual !== null && residual <= 30 ? 'success' : 'info';
+    showToast(`Pair ${savedIndex + 1} saved — residual ${residualText}.`, { tone });
+  }
   showGuidedPairSavedToast(savedIndex);
   advanceGuidedFlow();
 }
@@ -528,6 +546,8 @@ function handlePhotoClick(event) {
   if (guidedPhotoStep) {
     setActiveView('osm');
     showToast('Now tap the matching spot on the map.');
+  } else if (!isGuidedActive()) {
+    showToast('Switch to the OpenStreetMap tab and tap the matching spot.');
   }
 }
 
@@ -729,6 +749,138 @@ function setupMaps() {
   }).addTo(state.osmMap);
 
   state.osmMap.on('click', handleOsmClick);
+
+  if (!state.osmLocateHandlersAttached) {
+    const handleLocateFound = (event) => {
+      const now = Date.now();
+      state.lastPosition = {
+        coords: {
+          latitude: event.latlng.lat,
+          longitude: event.latlng.lng,
+          accuracy: event.accuracy,
+        },
+        timestamp: now,
+      };
+      state.lastGpsUpdate = now;
+      updateGpsStatus(`Live position · accuracy ±${Math.round(event.accuracy)} m`, false);
+      updateStatusText();
+      updateLivePosition();
+    };
+
+    const handleLocateError = (error) => {
+      updateGpsStatus(`Location error: ${error.message}`, true);
+    };
+
+    state.osmMap.on('locationfound', handleLocateFound);
+    state.osmMap.on('locationerror', handleLocateError);
+    state.osmLocateHandlersAttached = true;
+  }
+
+  if (L.control && typeof L.control.locate === 'function') {
+    const locateControl = L.control.locate({
+      position: 'topleft',
+      setView: 'always',
+      flyTo: false,
+      cacheLocation: true,
+      showPopup: false,
+    });
+
+    state.osmLocateControl = locateControl.addTo(state.osmMap);
+
+    try {
+      updateGpsStatus('Locating your position…', false);
+      state.osmLocateControl.start();
+    } catch (error) {
+      console.warn('Failed to start locate control', error);
+    }
+  } else {
+    console.warn('Leaflet locate control plugin not available.');
+  }
+}
+
+function centerOsmOnLatLon(lat, lon) {
+  if (!state.osmMap) return;
+  const latlng = L.latLng(lat, lon);
+  const targetZoom = Math.max(state.osmMap.getZoom() || 0, 15);
+  state.osmMap.setView(latlng, targetZoom);
+}
+
+function requestAndCenterOsmOnUser() {
+  if (state.osmLocateControl) {
+    try {
+      state.osmLocateControl.start();
+    } catch (error) {
+      console.warn('Failed to trigger locate control', error);
+    }
+    return;
+  }
+
+  if (!navigator.geolocation) return;
+  updateGpsStatus('Locating your position…', false);
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      updateGpsStatus(`Centered on your location (±${Math.round(pos.coords.accuracy)} m)`, false);
+      centerOsmOnLatLon(pos.coords.latitude, pos.coords.longitude);
+    },
+    () => {
+      // ignore errors – keep default view
+      updateGpsStatus('Could not get your location right now.', true);
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 },
+  );
+}
+
+function maybePromptGeolocationForOsm() {
+  // If we already have a recent position, prefer that immediately
+  if (state.lastPosition && Date.now() - (state.lastGpsUpdate || 0) <= 5_000) {
+    const { latitude, longitude } = state.lastPosition.coords;
+    centerOsmOnLatLon(latitude, longitude);
+    // continue so we also keep the locate control active for future updates
+  }
+
+  if (state.osmLocateControl) {
+    state.osmGeoPrompted = true;
+    try {
+      state.osmLocateControl.start();
+    } catch (error) {
+      console.warn('Failed to restart locate control', error);
+    }
+    return;
+  }
+
+  if (!navigator.geolocation) return;
+
+  const shouldPrompt = !state.osmGeoPrompted;
+
+  // Try Permissions API to avoid unnecessary prompt where already denied/granted
+  const doRequest = () => {
+    if (shouldPrompt) state.osmGeoPrompted = true;
+    requestAndCenterOsmOnUser();
+  };
+
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      navigator.permissions
+        .query({ name: 'geolocation' })
+        .then((status) => {
+          if (status.state === 'granted') {
+            // No prompt needed; just center
+            requestAndCenterOsmOnUser();
+          } else if (status.state === 'prompt') {
+            // Only trigger the browser prompt the first time we open OSM
+            if (shouldPrompt) doRequest();
+          }
+          // if denied → do nothing
+        })
+        .catch(() => {
+          if (shouldPrompt) doRequest();
+        });
+    } catch (_) {
+      if (shouldPrompt) doRequest();
+    }
+  } else {
+    if (shouldPrompt) doRequest();
+  }
 }
 
 function setActiveView(view) {
@@ -750,6 +902,8 @@ function setActiveView(view) {
     dom.photoTabButton.classList.remove('bg-blue-600', 'text-white');
     dom.photoTabButton.classList.add('bg-white/10', 'text-blue-300');
     state.osmMap.invalidateSize();
+    // On first OSM open, immediately ask for location permission and center if available
+    maybePromptGeolocationForOsm();
   }
 }
 
@@ -806,7 +960,15 @@ function init() {
   setActiveView('photo');
   updateStatusText();
   updateGpsStatus('Import a map photo to get started.', false);
+  showToast('Import a map photo to get started.');
   registerServiceWorker();
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+export const __testables = {
+  setupMaps,
+  state,
+  maybePromptGeolocationForOsm,
+  requestAndCenterOsmOnUser,
+};
