@@ -30,6 +30,8 @@ const state = {
   geoWatchId: null,
   lastPosition: null,
   lastGpsUpdate: null,
+  photoPendingCenter: false,
+  osmPendingCenter: false,
   // Prompt geolocation when OSM tab opened the first time
   osmGeoPrompted: false,
   guidedPairing: {
@@ -187,6 +189,15 @@ function updateStatusText() {
   }
 }
 
+function setPhotoImportState(hasImage) {
+  if (dom.photoPlaceholder) {
+    dom.photoPlaceholder.classList.toggle('hidden', hasImage);
+  }
+  if (dom.replacePhotoButton) {
+    dom.replacePhotoButton.classList.toggle('hidden', !hasImage);
+  }
+}
+
 function clearMarkers(markers) {
   markers.forEach((marker) => marker.remove());
   return [];
@@ -234,18 +245,18 @@ function renderPairList() {
 
   state.pairs.forEach((pair, index) => {
     const row = document.createElement('tr');
-    row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+    row.className = index % 2 === 0 ? 'bg-slate-900/40' : 'bg-slate-900/20';
     const residual = state.calibration && state.calibration.residuals ? state.calibration.residuals[index] : null;
     const inlier = state.calibration && state.calibration.inliers ? state.calibration.inliers[index] : false;
     const indicatorClass = !state.calibration ? 'bg-blue-500' : inlier ? 'bg-green-500' : 'bg-red-500';
     const indicator = `<span class="inline-block w-2 h-2 rounded-full ${indicatorClass}"></span>`;
 
     row.innerHTML = `
-      <td class="px-3 py-2 text-sm text-gray-700 space-x-2">${indicator}<span>${pair.pixel.x.toFixed(1)}, ${pair.pixel.y.toFixed(1)}</span></td>
-      <td class="px-3 py-2 text-sm text-gray-700">${formatLatLon(pair.wgs84.lat, 'N', 'S')} · ${formatLatLon(pair.wgs84.lon, 'E', 'W')}</td>
-      <td class="px-3 py-2 text-sm text-gray-700">${residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—'}</td>
-      <td class="px-3 py-2 text-right">
-        <button class="text-sm text-red-600 hover:underline" data-action="delete" data-index="${index}">Remove</button>
+      <td class="px-4 py-3 text-sm text-slate-200 space-x-2">${indicator}<span>${pair.pixel.x.toFixed(1)}, ${pair.pixel.y.toFixed(1)}</span></td>
+      <td class="px-4 py-3 text-sm text-slate-200">${formatLatLon(pair.wgs84.lat, 'N', 'S')} · ${formatLatLon(pair.wgs84.lon, 'E', 'W')}</td>
+      <td class="px-4 py-3 text-sm text-slate-200">${residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—'}</td>
+      <td class="px-4 py-3 text-right">
+        <button class="text-sm font-semibold text-rose-300 hover:text-rose-200" data-action="delete" data-index="${index}">Remove</button>
       </td>`;
 
     dom.pairTableBody.appendChild(row);
@@ -264,7 +275,7 @@ function updateGpsStatus(message, isError) {
     return;
   }
   dom.gpsStatus.textContent = message;
-  dom.gpsStatus.className = isError ? 'text-sm text-red-600' : 'text-sm text-slate-600';
+  dom.gpsStatus.className = isError ? 'text-sm text-rose-400' : 'text-sm text-slate-200';
 }
 
 function updateLivePosition() {
@@ -314,6 +325,11 @@ function updateLivePosition() {
 
   ensureUserMarker(latlng);
 
+  if (state.photoPendingCenter && state.photoMap) {
+    state.photoMap.panTo(latlng, { animate: true });
+    state.photoPendingCenter = false;
+  }
+
   const ring = accuracyRingRadiusPixels(state.calibration, location, coords.accuracy || 50);
   updateAccuracyCircle(latlng, ring);
 
@@ -332,12 +348,15 @@ function startGeolocationWatch() {
   }
 
   updateGpsStatus('Waiting for location fix…', false);
+  state.photoPendingCenter = true;
+  state.osmPendingCenter = true;
 
   state.geoWatchId = navigator.geolocation.watchPosition(
     (position) => {
       state.lastPosition = position;
       state.lastGpsUpdate = Date.now();
       updateGpsStatus(`Live position · accuracy ±${Math.round(position.coords.accuracy)} m`, false);
+      maybeCenterOsmOnFix(position.coords.latitude, position.coords.longitude);
       updateLivePosition();
       updateStatusText();
     },
@@ -652,6 +671,8 @@ function loadPhotoMap(dataUrl, width, height) {
   state.photoMap.setMaxBounds(bounds);
   state.photoMap.fitBounds(bounds);
 
+  setPhotoImportState(true);
+
   state.imageDataUrl = dataUrl;
   state.imageSize = { width, height };
   state.pairs = [];
@@ -670,6 +691,16 @@ function loadPhotoMap(dataUrl, width, height) {
   updateStatusText();
   updateGpsStatus('Photo loaded. Guided pairing active — follow the prompts.', false);
   startGuidedPairing();
+
+  if (dom.mapImageInput) {
+    dom.mapImageInput.value = '';
+  }
+
+  requestAnimationFrame(() => {
+    if (state.photoMap) {
+      state.photoMap.invalidateSize();
+    }
+  });
 }
 
 function handleImageImport(event) {
@@ -764,6 +795,7 @@ function setupMaps() {
       state.lastGpsUpdate = now;
       updateGpsStatus(`Live position · accuracy ±${Math.round(event.accuracy)} m`, false);
       updateStatusText();
+      maybeCenterOsmOnFix(event.latlng.lat, event.latlng.lng);
       updateLivePosition();
     };
 
@@ -779,16 +811,18 @@ function setupMaps() {
   if (L.control && typeof L.control.locate === 'function') {
     const locateControl = L.control.locate({
       position: 'topleft',
-      setView: 'always',
+      setView: false,
       flyTo: false,
       cacheLocation: true,
       showPopup: false,
     });
 
     state.osmLocateControl = locateControl.addTo(state.osmMap);
+    state.osmPendingCenter = true;
 
     try {
       updateGpsStatus('Locating your position…', false);
+      state.osmPendingCenter = true;
       state.osmLocateControl.start();
     } catch (error) {
       console.warn('Failed to start locate control', error);
@@ -805,9 +839,18 @@ function centerOsmOnLatLon(lat, lon) {
   state.osmMap.setView(latlng, targetZoom);
 }
 
+function maybeCenterOsmOnFix(lat, lon) {
+  if (!state.osmPendingCenter) {
+    return;
+  }
+  centerOsmOnLatLon(lat, lon);
+  state.osmPendingCenter = false;
+}
+
 function requestAndCenterOsmOnUser() {
   if (state.osmLocateControl) {
     try {
+      state.osmPendingCenter = true;
       state.osmLocateControl.start();
     } catch (error) {
       console.warn('Failed to trigger locate control', error);
@@ -821,6 +864,7 @@ function requestAndCenterOsmOnUser() {
     (pos) => {
       updateGpsStatus(`Centered on your location (±${Math.round(pos.coords.accuracy)} m)`, false);
       centerOsmOnLatLon(pos.coords.latitude, pos.coords.longitude);
+      state.osmPendingCenter = false;
     },
     () => {
       // ignore errors – keep default view
@@ -835,6 +879,7 @@ function maybePromptGeolocationForOsm() {
   if (state.lastPosition && Date.now() - (state.lastGpsUpdate || 0) <= 5_000) {
     const { latitude, longitude } = state.lastPosition.coords;
     centerOsmOnLatLon(latitude, longitude);
+    state.osmPendingCenter = false;
     // continue so we also keep the locate control active for future updates
   }
 
@@ -917,6 +962,7 @@ function registerServiceWorker() {
 
 function cacheDom() {
   dom.mapImageInput = $('mapImageInput');
+  dom.photoPlaceholder = $('photoPlaceholder');
   dom.addPairButton = $('addPairButton');
   dom.usePositionButton = $('usePositionButton');
   dom.confirmPairButton = $('confirmPairButton');
@@ -934,6 +980,7 @@ function cacheDom() {
   dom.osmTabButton = $('osmTabButton');
   dom.pairTable = $('pairTable');
   dom.toastContainer = $('toastContainer');
+  dom.replacePhotoButton = $('replacePhotoButton');
 }
 
 function setupEventHandlers() {
@@ -955,6 +1002,7 @@ function setupEventHandlers() {
 
 function init() {
   cacheDom();
+  setPhotoImportState(false);
   setupEventHandlers();
   setupMaps();
   setActiveView('photo');

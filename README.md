@@ -67,13 +67,14 @@
 
 * On wake: **Quick refresh** → try `getCurrentPosition` (timeout **3 s**); if none, show **last known** (≤5 min, “stale” badge). Start `watchPosition` thereafter.
 * Update cadence follows device feed; UI throttles to \~**3–5 s**.
+* First GPS fix recenters/zooms the photo and OSM views to the user; later updates keep the camera where the user last left it while markers/accuracy rings continue to update.
 * **Accuracy ring** around user dot (see §7).
 
 ---
 
 ## 4) Image handling
 
-* **Import**: Camera (`<input type="file" accept="image/*" capture="environment">`) or gallery.
+* **Import**: Native file picker (`<input type="file" accept="image/*">`) lets mobile users capture a new photo or pull one from their gallery without leaving the flow.
 * **Orientation**: Apply EXIF orientation, then **strip EXIF** (privacy).
 * **Storage**: **Only optimized display** version, long edge ≈ **4096 px**, **WebP/AVIF** (JPEG fallback), sRGB.
 * **Max per map**: 25–50 MB (config). Oversize → auto-downscale + toast.

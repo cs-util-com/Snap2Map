@@ -66,7 +66,7 @@ describe('OpenStreetMap locate control integration', () => {
 
     expect(global.L.control.locate).toHaveBeenCalledWith(
       expect.objectContaining({
-        setView: 'always',
+        setView: false,
         flyTo: false,
         cacheLocation: true,
         showPopup: false,
@@ -90,6 +90,7 @@ describe('OpenStreetMap locate control integration', () => {
 
     const fixedNow = 1700000000000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const preFixCalls = mapInstance.setView.mock.calls.length;
 
     const handler = mapHandlers.locationfound;
     expect(handler).toBeInstanceOf(Function);
@@ -108,8 +109,35 @@ describe('OpenStreetMap locate control integration', () => {
       timestamp: fixedNow,
     });
     expect(state.lastGpsUpdate).toBe(fixedNow);
+    expect(mapInstance.setView.mock.calls.length).toBe(preFixCalls + 1);
 
     Date.now.mockRestore();
+  });
+
+  it('only recenters the OSM map on the first fix while locating', () => {
+    loadModule();
+
+    setupMaps();
+
+    const handler = mapHandlers.locationfound;
+    expect(handler).toBeInstanceOf(Function);
+
+    const initialCalls = mapInstance.setView.mock.calls.length;
+
+    handler({
+      latlng: { lat: 34.05, lng: -118.25 },
+      accuracy: 6.2,
+    });
+
+    const afterFirstFix = mapInstance.setView.mock.calls.length;
+    expect(afterFirstFix).toBe(initialCalls + 1);
+
+    handler({
+      latlng: { lat: 34.051, lng: -118.251 },
+      accuracy: 6.0,
+    });
+
+    expect(mapInstance.setView.mock.calls.length).toBe(afterFirstFix);
   });
 
   it('does not rely on the locate control exposing an event API', () => {

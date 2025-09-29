@@ -10,81 +10,105 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
-  <div class="max-w-6xl mx-auto px-4 py-10 space-y-8">
-    <header class="space-y-4">
-      <h1 class="text-4xl font-black tracking-tight">Snap2Map</h1>
-      <p class="text-slate-300 max-w-3xl">
-        Photograph any trailboard or printed map, drop a few reference pairs, and watch your live GPS position glide across the photo. Works offline, with OpenStreetMap context when you are connected.
-      </p>
-    </header>
-
-    <section class="bg-slate-900/70 border border-slate-700 rounded-xl p-6 space-y-4">
-      <h2 class="text-xl font-semibold text-slate-100">1. Import map photo</h2>
-      <p class="text-sm text-slate-300">Use a sharp, well-lit image. Snap2Map keeps only an optimized copy on device.</p>
-      <label class="block w-full">
-        <span class="sr-only">Upload map image</span>
-        <input id="mapImageInput" type="file" accept="image/*" capture="environment" class="block w-full text-sm text-slate-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500">
-      </label>
+  <div class="min-h-screen flex flex-col lg:items-stretch">
+    <section class="w-full border-b border-slate-800 bg-slate-950/70 backdrop-blur-sm">
+      <div class="px-4 py-6 sm:px-6 lg:px-8">
+        <header class="space-y-3">
+          <h1 class="text-4xl font-black tracking-tight">Snap2Map</h1>
+          <p class="text-slate-300 text-sm leading-relaxed lg:text-base">
+            Photograph any trailboard or printed map, drop a few reference pairs, and watch your live GPS position glide across the photo. Works offline, with OpenStreetMap context when you are connected.
+          </p>
+        </header>
+      </div>
     </section>
 
-    <section class="bg-slate-900/70 border border-slate-700 rounded-xl p-6 space-y-4">
-      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 class="text-xl font-semibold text-slate-100">2. Create reference pairs</h2>
-          <p id="pairStatus" class="text-sm text-slate-300">Tap “Start pair” and select a pixel on the photo followed by its real-world location on the map.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button id="addPairButton" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 transition">Start pair</button>
-          <button id="usePositionButton" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 transition">Use my position</button>
-          <button id="confirmPairButton" class="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold opacity-80 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-violet-500 transition" disabled>Confirm pair</button>
-          <button id="cancelPairButton" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold opacity-80 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-600 transition" disabled>Cancel</button>
-        </div>
-      </div>
-
-      <div class="bg-slate-950/60 border border-slate-700 rounded-lg">
-        <div class="flex">
-          <button id="photoTabButton" class="flex-1 px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-tl-lg">Photo</button>
-          <button id="osmTabButton" class="flex-1 px-4 py-2 text-sm font-semibold bg-white/10 text-blue-300 rounded-tr-lg">OpenStreetMap</button>
-        </div>
-        <div class="p-3">
-          <div id="photoView" class="rounded-lg overflow-hidden border border-slate-800">
-            <div id="photoMap" class="h-96"></div>
+    <main class="flex-1 flex flex-col bg-slate-950 min-h-0">
+      <section class="flex-1 flex flex-col px-4 py-6 sm:px-6 lg:px-10">
+        <div class="flex-1 flex flex-col bg-slate-900/70 border border-slate-700 rounded-2xl shadow-xl overflow-hidden">
+          <div class="border-b border-slate-800 p-4 sm:p-6 space-y-4">
+            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div class="space-y-2">
+                <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
+                  <span class="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-3 py-1 font-semibold text-blue-200">Step 2</span>
+                  <span class="font-semibold text-slate-200">Create reference pairs</span>
+                </div>
+                <p id="pairStatus" class="text-sm text-slate-300 max-w-2xl">
+                  Tap “Start pair” and select a pixel on the photo followed by its real-world location on the map.
+                </p>
+              </div>
+                  <div class="flex flex-wrap gap-2">
+                    <label id="replacePhotoButton" for="mapImageInput" class="hidden cursor-pointer px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-600 transition">Replace photo</label>
+                <button id="addPairButton" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 transition">Start pair</button>
+                <button id="usePositionButton" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 transition">Use my position</button>
+                <button id="confirmPairButton" class="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold opacity-80 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-violet-500 transition" disabled>Confirm pair</button>
+                <button id="cancelPairButton" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold opacity-80 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-600 transition" disabled>Cancel</button>
+              </div>
+            </div>
           </div>
-          <div id="osmView" class="hidden rounded-lg overflow-hidden border border-slate-800">
-            <div id="osmMap" class="h-96"></div>
+          <div class="flex-1 flex flex-col">
+            <div class="flex border-b border-slate-800">
+              <button id="photoTabButton" class="flex-1 px-4 py-2 text-sm font-semibold bg-blue-600 text-white">Photo</button>
+              <button id="osmTabButton" class="flex-1 px-4 py-2 text-sm font-semibold bg-white/10 text-blue-300">OpenStreetMap</button>
+            </div>
+            <div class="flex-1 p-3 sm:p-4 lg:p-6 flex flex-col">
+              <div id="photoView" class="relative flex-1 rounded-xl overflow-hidden border border-slate-800 bg-slate-950/60">
+                <div id="photoPlaceholder" class="absolute inset-0 flex items-center justify-center p-6 sm:p-10">
+                  <div class="w-full max-w-xl space-y-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg backdrop-blur">
+                    <div class="space-y-2">
+                      <span class="inline-flex items-center gap-2 rounded-full bg-blue-600/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-200">Step 1</span>
+                      <h2 class="text-2xl font-semibold text-slate-100">Import map photo</h2>
+                    </div>
+                    <p class="text-sm text-slate-300">Choose a sharp, well-lit image of your trailboard or printed map. Snap2Map keeps only an optimized copy on your device.</p>
+                    <label class="block w-full">
+                      <span class="sr-only">Upload map image</span>
+                      <input id="mapImageInput" type="file" accept="image/*" class="block w-full text-sm text-slate-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500">
+                    </label>
+                    <p class="text-xs text-slate-400">Tip: Mobile browsers let you take a new photo or pick one from your gallery when you tap the button above.</p>
+                  </div>
+                </div>
+                <div id="photoMap" class="h-full w-full min-h-[55vh] sm:min-h-[60vh] lg:min-h-[65vh]"></div>
+              </div>
+              <div id="osmView" class="hidden flex-1 rounded-xl overflow-hidden border border-slate-800 min-h-[55vh] sm:min-h-[60vh] lg:min-h-[65vh]">
+                <div id="osmMap" class="h-full w-full min-h-[55vh] sm:min-h-[60vh] lg:min-h-[65vh]"></div>
+              </div>
+            </div>
+          </div>
+          <div class="border-t border-slate-800 bg-slate-900/80 p-4 sm:p-5 space-y-3">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div class="flex items-center gap-2 text-sm">
+                <span id="calibrationBadge" class="px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700">No calibration</span>
+                <span id="calibrationStatus" class="text-slate-200">Add at least two reference pairs to calibrate the photo.</span>
+              </div>
+              <div class="text-sm text-slate-300" id="residualSummary"></div>
+            </div>
+            <div class="text-sm text-blue-200" id="accuracyDetails"></div>
+            <div class="text-sm text-slate-200" id="gpsStatus">Import a map photo to get started.</div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="bg-slate-900/70 border border-slate-700 rounded-xl p-6 space-y-4">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div class="flex items-center gap-2 text-sm">
-          <span id="calibrationBadge" class="px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700">No calibration</span>
-          <span id="calibrationStatus" class="text-slate-200">Add at least two reference pairs to calibrate the photo.</span>
+      <section class="px-4 pb-10 sm:px-6 lg:px-10">
+        <div class="bg-slate-900/60 border border-slate-700 rounded-2xl shadow-lg overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5">
+            <h2 class="text-lg font-semibold text-slate-100">Reference pairs</h2>
+            <span class="text-xs uppercase tracking-wide text-slate-500 hidden sm:block">Manage or remove points below</span>
+          </div>
+          <div class="border-t border-slate-800 max-h-80 overflow-y-auto">
+            <table class="min-w-full text-left" id="pairTable">
+              <thead class="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800 bg-slate-900/70">
+                <tr>
+                  <th class="px-4 py-3">Pixel (x, y)</th>
+                  <th class="px-4 py-3">World (lat, lon)</th>
+                  <th class="px-4 py-3">Residual</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pairTableBody" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="text-sm text-slate-300" id="residualSummary"></div>
-      </div>
-      <div id="accuracyDetails" class="text-sm text-blue-200"></div>
-      <div class="text-sm" id="gpsStatus">Import a map photo to get started.</div>
-    </section>
-
-    <section class="bg-slate-900/70 border border-slate-700 rounded-xl p-6">
-      <h2 class="text-xl font-semibold text-slate-100 mb-4">Reference pairs</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left" id="pairTable">
-          <thead class="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700">
-            <tr>
-              <th class="px-3 py-2">Pixel (x, y)</th>
-              <th class="px-3 py-2">World (lat, lon)</th>
-              <th class="px-3 py-2">Residual</th>
-              <th class="px-3 py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="pairTableBody" class="divide-y divide-slate-800"></tbody>
-        </table>
-      </div>
-    </section>
+      </section>
+    </main>
   </div>
 
   <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-50 space-y-2 w-[calc(100%-2rem)] max-w-sm pointer-events-none"></div>
