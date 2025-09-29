@@ -30,6 +30,8 @@ const state = {
   geoWatchId: null,
   lastPosition: null,
   lastGpsUpdate: null,
+  photoPendingCenter: false,
+  osmPendingCenter: false,
   // Prompt geolocation when OSM tab opened the first time
   osmGeoPrompted: false,
   guidedPairing: {
@@ -323,6 +325,11 @@ function updateLivePosition() {
 
   ensureUserMarker(latlng);
 
+  if (state.photoPendingCenter && state.photoMap) {
+    state.photoMap.panTo(latlng, { animate: true });
+    state.photoPendingCenter = false;
+  }
+
   const ring = accuracyRingRadiusPixels(state.calibration, location, coords.accuracy || 50);
   updateAccuracyCircle(latlng, ring);
 
@@ -341,12 +348,15 @@ function startGeolocationWatch() {
   }
 
   updateGpsStatus('Waiting for location fix…', false);
+  state.photoPendingCenter = true;
+  state.osmPendingCenter = true;
 
   state.geoWatchId = navigator.geolocation.watchPosition(
     (position) => {
       state.lastPosition = position;
       state.lastGpsUpdate = Date.now();
       updateGpsStatus(`Live position · accuracy ±${Math.round(position.coords.accuracy)} m`, false);
+      maybeCenterOsmOnFix(position.coords.latitude, position.coords.longitude);
       updateLivePosition();
       updateStatusText();
     },
@@ -785,6 +795,7 @@ function setupMaps() {
       state.lastGpsUpdate = now;
       updateGpsStatus(`Live position · accuracy ±${Math.round(event.accuracy)} m`, false);
       updateStatusText();
+      maybeCenterOsmOnFix(event.latlng.lat, event.latlng.lng);
       updateLivePosition();
     };
 
@@ -800,16 +811,18 @@ function setupMaps() {
   if (L.control && typeof L.control.locate === 'function') {
     const locateControl = L.control.locate({
       position: 'topleft',
-      setView: 'always',
+      setView: false,
       flyTo: false,
       cacheLocation: true,
       showPopup: false,
     });
 
     state.osmLocateControl = locateControl.addTo(state.osmMap);
+    state.osmPendingCenter = true;
 
     try {
       updateGpsStatus('Locating your position…', false);
+      state.osmPendingCenter = true;
       state.osmLocateControl.start();
     } catch (error) {
       console.warn('Failed to start locate control', error);
@@ -826,9 +839,18 @@ function centerOsmOnLatLon(lat, lon) {
   state.osmMap.setView(latlng, targetZoom);
 }
 
+function maybeCenterOsmOnFix(lat, lon) {
+  if (!state.osmPendingCenter) {
+    return;
+  }
+  centerOsmOnLatLon(lat, lon);
+  state.osmPendingCenter = false;
+}
+
 function requestAndCenterOsmOnUser() {
   if (state.osmLocateControl) {
     try {
+      state.osmPendingCenter = true;
       state.osmLocateControl.start();
     } catch (error) {
       console.warn('Failed to trigger locate control', error);
@@ -842,6 +864,7 @@ function requestAndCenterOsmOnUser() {
     (pos) => {
       updateGpsStatus(`Centered on your location (±${Math.round(pos.coords.accuracy)} m)`, false);
       centerOsmOnLatLon(pos.coords.latitude, pos.coords.longitude);
+      state.osmPendingCenter = false;
     },
     () => {
       // ignore errors – keep default view
@@ -856,6 +879,7 @@ function maybePromptGeolocationForOsm() {
   if (state.lastPosition && Date.now() - (state.lastGpsUpdate || 0) <= 5_000) {
     const { latitude, longitude } = state.lastPosition.coords;
     centerOsmOnLatLon(latitude, longitude);
+    state.osmPendingCenter = false;
     // continue so we also keep the locate control active for future updates
   }
 

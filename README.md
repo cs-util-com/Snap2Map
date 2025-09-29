@@ -67,6 +67,7 @@
 
 * On wake: **Quick refresh** → try `getCurrentPosition` (timeout **3 s**); if none, show **last known** (≤5 min, “stale” badge). Start `watchPosition` thereafter.
 * Update cadence follows device feed; UI throttles to \~**3–5 s**.
+* First GPS fix recenters/zooms the photo and OSM views to the user; later updates keep the camera where the user last left it while markers/accuracy rings continue to update.
 * **Accuracy ring** around user dot (see §7).
 
 ---
