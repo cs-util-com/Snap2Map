@@ -187,6 +187,15 @@ function updateStatusText() {
   }
 }
 
+function setPhotoImportState(hasImage) {
+  if (dom.photoPlaceholder) {
+    dom.photoPlaceholder.classList.toggle('hidden', hasImage);
+  }
+  if (dom.replacePhotoButton) {
+    dom.replacePhotoButton.classList.toggle('hidden', !hasImage);
+  }
+}
+
 function clearMarkers(markers) {
   markers.forEach((marker) => marker.remove());
   return [];
@@ -652,6 +661,8 @@ function loadPhotoMap(dataUrl, width, height) {
   state.photoMap.setMaxBounds(bounds);
   state.photoMap.fitBounds(bounds);
 
+  setPhotoImportState(true);
+
   state.imageDataUrl = dataUrl;
   state.imageSize = { width, height };
   state.pairs = [];
@@ -670,6 +681,16 @@ function loadPhotoMap(dataUrl, width, height) {
   updateStatusText();
   updateGpsStatus('Photo loaded. Guided pairing active — follow the prompts.', false);
   startGuidedPairing();
+
+  if (dom.mapImageInput) {
+    dom.mapImageInput.value = '';
+  }
+
+  requestAnimationFrame(() => {
+    if (state.photoMap) {
+      state.photoMap.invalidateSize();
+    }
+  });
 }
 
 function handleImageImport(event) {
@@ -917,6 +938,7 @@ function registerServiceWorker() {
 
 function cacheDom() {
   dom.mapImageInput = $('mapImageInput');
+  dom.photoPlaceholder = $('photoPlaceholder');
   dom.addPairButton = $('addPairButton');
   dom.usePositionButton = $('usePositionButton');
   dom.confirmPairButton = $('confirmPairButton');
@@ -934,6 +956,7 @@ function cacheDom() {
   dom.osmTabButton = $('osmTabButton');
   dom.pairTable = $('pairTable');
   dom.toastContainer = $('toastContainer');
+  dom.replacePhotoButton = $('replacePhotoButton');
 }
 
 function setupEventHandlers() {
@@ -955,6 +978,7 @@ function setupEventHandlers() {
 
 function init() {
   cacheDom();
+  setPhotoImportState(false);
   setupEventHandlers();
   setupMaps();
   setActiveView('photo');

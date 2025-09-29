@@ -12,23 +12,13 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <div class="min-h-screen flex flex-col lg:items-stretch">
     <section class="w-full border-b border-slate-800 bg-slate-950/70 backdrop-blur-sm">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+      <div class="px-4 py-6 sm:px-6 lg:px-8">
         <header class="space-y-3">
           <h1 class="text-4xl font-black tracking-tight">Snap2Map</h1>
           <p class="text-slate-300 text-sm leading-relaxed lg:text-base">
             Photograph any trailboard or printed map, drop a few reference pairs, and watch your live GPS position glide across the photo. Works offline, with OpenStreetMap context when you are connected.
           </p>
         </header>
-
-        <section class="bg-slate-900/70 border border-slate-800 rounded-xl p-5 space-y-4">
-          <h2 class="text-lg font-semibold text-slate-100">1. Import map photo</h2>
-          <p class="text-sm text-slate-300">Use a sharp, well-lit image. Snap2Map keeps only an optimized copy on device.</p>
-          <label class="block w-full">
-            <span class="sr-only">Upload map image</span>
-            <input id="mapImageInput" type="file" accept="image/*" capture="environment" class="block w-full text-sm text-slate-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500">
-          </label>
-          <p class="text-xs text-slate-400">Tip: On mobile you can snap a picture directly using your camera.</p>
-        </section>
       </div>
     </section>
 
@@ -46,7 +36,8 @@
                   Tap “Start pair” and select a pixel on the photo followed by its real-world location on the map.
                 </p>
               </div>
-              <div class="flex flex-wrap gap-2">
+                  <div class="flex flex-wrap gap-2">
+                    <label id="replacePhotoButton" for="mapImageInput" class="hidden cursor-pointer px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-600 transition">Replace photo</label>
                 <button id="addPairButton" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 transition">Start pair</button>
                 <button id="usePositionButton" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 transition">Use my position</button>
                 <button id="confirmPairButton" class="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold opacity-80 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-violet-500 transition" disabled>Confirm pair</button>
@@ -60,11 +51,25 @@
               <button id="osmTabButton" class="flex-1 px-4 py-2 text-sm font-semibold bg-white/10 text-blue-300">OpenStreetMap</button>
             </div>
             <div class="flex-1 p-3 sm:p-4 lg:p-6 flex flex-col">
-              <div id="photoView" class="flex-1 rounded-xl overflow-hidden border border-slate-800 min-h-[55vh] sm:min-h-[60vh] lg:min-h-[65vh]">
-                <div id="photoMap" class="h-full w-full"></div>
+              <div id="photoView" class="relative flex-1 rounded-xl overflow-hidden border border-slate-800 bg-slate-950/60">
+                <div id="photoPlaceholder" class="absolute inset-0 flex items-center justify-center p-6 sm:p-10">
+                  <div class="w-full max-w-xl space-y-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg backdrop-blur">
+                    <div class="space-y-2">
+                      <span class="inline-flex items-center gap-2 rounded-full bg-blue-600/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-200">Step 1</span>
+                      <h2 class="text-2xl font-semibold text-slate-100">Import map photo</h2>
+                    </div>
+                    <p class="text-sm text-slate-300">Choose a sharp, well-lit image of your trailboard or printed map. Snap2Map keeps only an optimized copy on your device.</p>
+                    <label class="block w-full">
+                      <span class="sr-only">Upload map image</span>
+                      <input id="mapImageInput" type="file" accept="image/*" capture="environment" class="block w-full text-sm text-slate-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500">
+                    </label>
+                    <p class="text-xs text-slate-400">Tip: On mobile you can snap a picture directly using your camera.</p>
+                  </div>
+                </div>
+                <div id="photoMap" class="h-full w-full min-h-[55vh] sm:min-h-[60vh] lg:min-h-[65vh]"></div>
               </div>
               <div id="osmView" class="hidden flex-1 rounded-xl overflow-hidden border border-slate-800 min-h-[55vh] sm:min-h-[60vh] lg:min-h-[65vh]">
-                <div id="osmMap" class="h-full w-full"></div>
+                <div id="osmMap" class="h-full w-full min-h-[55vh] sm:min-h-[60vh] lg:min-h-[65vh]"></div>
               </div>
             </div>
           </div>
