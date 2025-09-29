@@ -74,7 +74,7 @@
 
 ## 4) Image handling
 
-* **Import**: Camera (`<input type="file" accept="image/*" capture="environment">`) or gallery.
+* **Import**: Native file picker (`<input type="file" accept="image/*">`) lets mobile users capture a new photo or pull one from their gallery without leaving the flow.
 * **Orientation**: Apply EXIF orientation, then **strip EXIF** (privacy).
 * **Storage**: **Only optimized display** version, long edge ≈ **4096 px**, **WebP/AVIF** (JPEG fallback), sRGB.
 * **Max per map**: 25–50 MB (config). Oversize → auto-downscale + toast.
