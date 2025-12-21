@@ -1071,6 +1071,15 @@ function handleMeasureModeClick(event) {
   
   // Update logical state
   Object.assign(state.measureMode, newState);
+
+  const createDragHandler = (marker, pointId) => {
+    marker.on('drag', () => {
+      const latlng = marker.getLatLng();
+      const updatedState = updateMeasureModePoint(state.measureMode, pointId, { x: latlng.lng, y: latlng.lat });
+      Object.assign(state.measureMode, updatedState);
+      updateMeasureModeLine();
+    });
+  };
   
   // Handle UI side effects based on action
   if (action === 'show-p2-toast') {
@@ -1079,12 +1088,7 @@ function handleMeasureModeClick(event) {
       draggable: true,
     }).addTo(state.photoMap);
     
-    state.measureMode.marker1.on('drag', () => {
-      const latlng = state.measureMode.marker1.getLatLng();
-      const updatedState = updateMeasureModePoint(state.measureMode, 'p1', { x: latlng.lng, y: latlng.lat });
-      Object.assign(state.measureMode, updatedState);
-      updateMeasureModeLine();
-    });
+    createDragHandler(state.measureMode.marker1, 'p1');
     
     showToast('Tap the end point to measure.');
     return true;
@@ -1096,12 +1100,7 @@ function handleMeasureModeClick(event) {
       draggable: true,
     }).addTo(state.photoMap);
     
-    state.measureMode.marker2.on('drag', () => {
-      const latlng = state.measureMode.marker2.getLatLng();
-      const updatedState = updateMeasureModePoint(state.measureMode, 'p2', { x: latlng.lng, y: latlng.lat });
-      Object.assign(state.measureMode, updatedState);
-      updateMeasureModeLine();
-    });
+    createDragHandler(state.measureMode.marker2, 'p2');
     
     updateMeasureModeLine();
     
