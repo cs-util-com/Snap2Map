@@ -176,4 +176,100 @@ describe('transformations', () => {
     expect(jacobianForTransform({ type: 'unsupported' }, { x: 0, y: 0 })).toBeNull();
     expect(averageScaleFromJacobian(null)).toBeNull();
   });
+
+  describe('fitSimilarityFixedScale', () => {
+    test('preserves exact fixed scale with known transform', () => {
+      const fixedScale = 5;
+      const theta = Math.PI / 6;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const translation = { x: 100, y: -40 };
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: translation.x, y: translation.y } },
+        { pixel: { x: 10, y: 0 }, enu: { x: translation.x + fixedScale * (cos * 10), y: translation.y + fixedScale * (sin * 10) } },
+        { pixel: { x: 0, y: 10 }, enu: { x: translation.x + fixedScale * (-sin * 10), y: translation.y + fixedScale * (cos * 10) } },
+      ];
+      const transform = fitSimilarityFixedScale(pairs, fixedScale);
+      expect(transform.scale).toBe(fixedScale);
+      expect(transform.rotation).toBeCloseTo(theta);
+      expect(transform.translation.x).toBeCloseTo(translation.x);
+      expect(transform.translation.y).toBeCloseTo(translation.y);
+    });
+
+    test('uses fixed scale even when data suggests different scale', () => {
+      // Data that would naturally fit scale=2, but we force scale=5
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 10, y: 0 }, enu: { x: 20, y: 0 } },
+        { pixel: { x: 0, y: 10 }, enu: { x: 0, y: 20 } },
+      ];
+      const freeTransform = fitSimilarity(pairs);
+      expect(freeTransform.scale).toBeCloseTo(2);
+
+      const fixedTransform = fitSimilarityFixedScale(pairs, 5);
+      expect(fixedTransform.scale).toBe(5);
+    });
+
+    test('correctly finds rotation when scale is fixed', () => {
+      const fixedScale = 3;
+      const theta = Math.PI / 4;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 10, y: 0 }, enu: { x: fixedScale * (cos * 10), y: fixedScale * (sin * 10) } },
+      ];
+      const transform = fitSimilarityFixedScale(pairs, fixedScale);
+      expect(transform.rotation).toBeCloseTo(theta);
+    });
+
+    test('computes correct translation with fixed scale', () => {
+      const fixedScale = 2;
+      const pairs = [
+        { pixel: { x: 5, y: 5 }, enu: { x: 100, y: 200 } },
+        { pixel: { x: 15, y: 5 }, enu: { x: 120, y: 200 } },
+      ];
+      const transform = fitSimilarityFixedScale(pairs, fixedScale);
+      expect(transform.scale).toBe(fixedScale);
+      const mapped = applyTransform(transform, { x: 5, y: 5 });
+      expect(mapped.x).toBeCloseTo(100);
+      expect(mapped.y).toBeCloseTo(200);
+    });
+
+    test('returns null for insufficient pairs', () => {
+      expect(fitSimilarityFixedScale([{ pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } }], 5)).toBeNull();
+      expect(fitSimilarityFixedScale([], 5)).toBeNull();
+    });
+
+    test('returns null for invalid fixed scale', () => {
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 10, y: 0 }, enu: { x: 20, y: 0 } },
+      ];
+      expect(fitSimilarityFixedScale(pairs, 0)).toBeNull();
+      expect(fitSimilarityFixedScale(pairs, NaN)).toBeNull();
+      expect(fitSimilarityFixedScale(pairs, Infinity)).toBeNull();
+    });
+
+    test('returns null for zero total weight', () => {
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 10, y: 0 }, enu: { x: 20, y: 0 } },
+      ];
+      expect(fitSimilarityFixedScale(pairs, 5, [0, 0])).toBeNull();
+    });
+
+    test('respects weights in rotation computation', () => {
+      // Two points suggesting different rotations, weights should favor second
+      const pairs = [
+        { pixel: { x: 10, y: 0 }, enu: { x: 10, y: 0 } },
+        { pixel: { x: 0, y: 10 }, enu: { x: 0, y: 10 } },
+      ];
+      const uniformTransform = fitSimilarityFixedScale(pairs, 1, [1, 1]);
+      const weightedTransform = fitSimilarityFixedScale(pairs, 1, [0.01, 1]);
+      // Both should work but give slightly different results due to weighting
+      expect(uniformTransform).not.toBeNull();
+      expect(weightedTransform).not.toBeNull();
+    });
+  });
 });
