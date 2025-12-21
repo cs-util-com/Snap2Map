@@ -10,11 +10,7 @@ function ensureWeights(length, weights) {
   return weights;
 }
 
-export function fitSimilarity(pairs, weights) {
-  if (pairs.length < 2) {
-    return null;
-  }
-
+function computeWeightedCentroids(pairs, weights) {
   const w = ensureWeights(pairs.length, weights);
   let weightSum = 0;
   let pixelCentroid = { x: 0, y: 0 };
@@ -33,8 +29,25 @@ export function fitSimilarity(pairs, weights) {
     return null;
   }
 
-  pixelCentroid = { x: pixelCentroid.x / weightSum, y: pixelCentroid.y / weightSum };
-  enuCentroid = { x: enuCentroid.x / weightSum, y: enuCentroid.y / weightSum };
+  return {
+    w,
+    weightSum,
+    pixelCentroid: { x: pixelCentroid.x / weightSum, y: pixelCentroid.y / weightSum },
+    enuCentroid: { x: enuCentroid.x / weightSum, y: enuCentroid.y / weightSum },
+  };
+}
+
+export function fitSimilarity(pairs, weights) {
+  if (pairs.length < 2) {
+    return null;
+  }
+
+  const centroids = computeWeightedCentroids(pairs, weights);
+  if (!centroids) {
+    return null;
+  }
+
+  const { w, pixelCentroid, enuCentroid } = centroids;
 
   // Precompute centered deltas to avoid duplicated code patterns
   const deltas = pairs.map((p, i) => {
