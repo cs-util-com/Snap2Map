@@ -71,12 +71,46 @@ We need to extend the application state to store the manual reference.
     1.  A manual `referenceDistance` (user-defined reference line with known meters).
     2.  A successful GPS-based calibration (scale derived from the calibration transform).
 *   **Scale Source Priority**: When both sources exist, `referenceDistance.metersPerPixel` takes precedence (manual measurement is considered more precise than GPS-derived scale).
+*   **Scale Source Indicator**: Display a subtle indicator showing the active scale source:
+    *   "📏 Manual scale: 0.05 m/px" (when using referenceDistance)
+    *   "📡 GPS-derived scale: 0.048 m/px" (when using calibration)
+    *   This helps users understand which scale is being used and aids debugging when measurements seem off.
 *   **Interaction Flow**:
     1.  User taps "Measure".
     2.  User taps to set a start point of the temporary measure line. (The user can still zoom and move around on the image while doing so)
     3. User taps to set the end point of the temporary measure line. (The user can still zoom and move around on the image while doing so)
     4.  **Real-time Feedback**: A label on the line shows the distance in meters, calculated as `pixelDistance * activeMetersPerPixel` (where `activeMetersPerPixel` is sourced from `referenceDistance` if set, otherwise from the GPS calibration).
     5. Afterwards the user can still long press and drag the start and end points of the measure line around on the image to refine their initial placement of these 2 points
+*   **Multiple Measurements**:
+    *   Allow multiple measurement lines on screen simultaneously for comparison.
+    *   "Pin" button on each measurement to keep it visible (pinned measurements persist until manually cleared).
+    *   "Clear All" button to remove all temporary and pinned measurements at once.
+    *   Each measurement line displays its distance label independently.
+
+### 2.3 Unit Selection
+*   **User Preference**: Allow users to select their preferred display unit:
+    *   Meters (m) - default
+    *   Feet (ft)
+    *   Feet and inches (e.g., 5' 6")
+*   **Internal Storage**: All values stored internally in meters for consistency.
+*   **Conversion Layer**: Simple display-time conversion:
+    ```javascript
+    const METERS_TO_FEET = 3.28084;
+    
+    function formatDistance(meters, unit) {
+      switch (unit) {
+        case 'ft': return `${(meters * METERS_TO_FEET).toFixed(2)} ft`;
+        case 'ft-in': {
+          const totalInches = meters * METERS_TO_FEET * 12;
+          const feet = Math.floor(totalInches / 12);
+          const inches = Math.round(totalInches % 12);
+          return `${feet}' ${inches}"`;
+        }
+        default: return `${meters.toFixed(2)} m`;
+      }
+    }
+    ```
+*   **Persistence**: Unit preference stored in user settings (localStorage or similar).
 
 ## 3. Logic & Calibration Integration
 
@@ -95,8 +129,62 @@ We need to extend the application state to store the manual reference.
         *   **Similarity (2 pairs)**: If a manual reference exists, we can optionally **force** the scale to $S_{manual}$. This reduces the Similarity transform to finding only Rotation ($R$) and Translation ($t$).
             *   **Benefit for GPS Visualization**: This significantly stabilizes the user's position on the map. With only 2 GPS points, the scale is extremely sensitive to GPS noise (e.g., a 5m error can drastically zoom the map in/out). Fixing the scale locks the "zoom level" to the trusted manual measurement, leaving GPS to only solve for position and orientation. This prevents the map from "breathing" or jumping in size as the user moves.
         *   **Affine/Homography (3+ pairs)**: Use $S_{manual}$ as a **validator**. If the local scale of the GPS-derived transform differs significantly (e.g., > 10%) from $S_{manual}$, show a warning: "GPS scale disagrees with manual reference."
+    5.  **Scale Disagreement Warning (Universal)**:
+        *   When both `referenceDistance` and GPS calibration exist, **always** compare their scales regardless of model type.
+        *   If $|S_{gps} - S_{manual}| / S_{manual} > 0.10$ (10% threshold), display a non-blocking warning:
+            *   "⚠️ Scale mismatch: Manual reference suggests 0.05 m/px, GPS calibration suggests 0.042 m/px (16% difference)"
+        *   This helps users identify potential issues with either the manual reference placement or GPS data quality.
+        *   The warning is informational only—manual scale still takes precedence for measurements.
 
 ## 4. Code Structure Changes
+
+### Scale Extraction from Calibration
+
+To support measurement mode when only GPS calibration exists (no manual reference), we need a helper to extract `metersPerPixel` from the calibration result:
+
+```javascript
+/**
+ * Extracts the scale (meters per pixel) from a calibration result.
+ * For similarity transforms, scale = sqrt(a² + b²) where matrix is [a, b, tx; -b, a, ty].
+ * Note: The calibration matrix maps pixels → geo coordinates, so this gives geo-units/pixel.
+ * For lat/lon, additional conversion to meters is needed based on latitude.
+ * 
+ * @param {Object} calibrationResult - Result from calibrateMap()
+ * @returns {number|null} - Scale in meters per pixel, or null if not extractable
+ */
+function getMetersPerPixelFromCalibration(calibrationResult) {
+  if (!calibrationResult || !calibrationResult.matrix) return null;
+  const { a, b } = calibrationResult.matrix;
+  const geoUnitsPerPixel = Math.sqrt(a * a + b * b);
+  // Convert degrees to meters (approximate, using center latitude)
+  // 1 degree ≈ 111,320 meters at equator, adjusted by cos(lat)
+  const centerLat = calibrationResult.centerLat || 0;
+  const metersPerDegree = 111320 * Math.cos(centerLat * Math.PI / 180);
+  return geoUnitsPerPixel * metersPerDegree;
+}
+```
+
+### Active Scale Resolution
+
+```javascript
+/**
+ * Determines the active metersPerPixel value based on available sources.
+ * Priority: manual referenceDistance > GPS calibration
+ * 
+ * @param {Object} state - Application state
+ * @returns {{ metersPerPixel: number, source: 'manual' | 'gps' } | null}
+ */
+function getActiveScale(state) {
+  if (state.referenceDistance?.metersPerPixel) {
+    return { metersPerPixel: state.referenceDistance.metersPerPixel, source: 'manual' };
+  }
+  if (state.calibration) {
+    const scale = getMetersPerPixelFromCalibration(state.calibration);
+    if (scale) return { metersPerPixel: scale, source: 'gps' };
+  }
+  return null;
+}
+```
 
 ### `src/index.js`
 *   Add `referenceDistance` to `state`.
@@ -121,9 +209,20 @@ We need to extend the application state to store the manual reference.
 *   **Unit Tests (`src/geo/transformations.test.js`)**:
     *   Test `fitSimilarityFixedScale` with synthetic data.
     *   Verify that the resulting transform preserves the input scale exactly.
+*   **Unit Tests (`src/index.js` - Scale Helpers)**:
+    *   Test `getMetersPerPixelFromCalibration` with various calibration results.
+    *   Test `getActiveScale` priority logic (manual > GPS).
+    *   Test `formatDistance` for all unit types (m, ft, ft-in).
 *   **Integration Tests**:
-    *   Verify that setting a reference distance enables the measure tool.
-    *   Verify that measurements are accurate based on the reference.
+    *   Verify measure tool enabled when `referenceDistance` is set (no GPS).
+    *   Verify measure tool enabled when valid GPS calibration exists (no manual reference).
+    *   Verify measure tool enabled when both sources exist.
+    *   Verify measure tool disabled when neither source exists.
+    *   Verify correct scale source priority: manual reference takes precedence over GPS.
+    *   Verify measurements are accurate based on the active scale source.
+    *   Verify scale disagreement warning appears when scales differ by >10%.
+    *   Verify multiple measurements can be displayed simultaneously.
+    *   Verify unit preference persists across sessions.
 
 ---
 
