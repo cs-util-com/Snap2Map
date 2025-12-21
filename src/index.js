@@ -8,6 +8,7 @@ import {
 } from 'snap2map/calibrator';
 import {
   formatDistance,
+  METERS_TO_FEET,
 } from './scale/scale.js';
 import {
   startScaleModeState,
@@ -784,10 +785,83 @@ function updateScaleModeLine() {
   }
 }
 
-function promptForReferenceDistance() {
-  const input = prompt('Enter the distance in meters:');
+// ─────────────────────────────────────────────────────────────────────────────
+// Distance Input Modal: Custom dialog for entering reference distances
+// ─────────────────────────────────────────────────────────────────────────────
+
+function convertToMeters(value, unit) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  switch (unit) {
+    case 'ft':
+    case 'ft-in':
+      return value / METERS_TO_FEET;
+    default:
+      return value;
+  }
+}
+
+function showDistanceModal() {
+  if (!dom.distanceModal) {
+    return;
+  }
   
-  const validation = validateDistanceInput(input);
+  // Reset modal state
+  dom.distanceInput.value = '';
+  dom.distanceUnit.value = state.preferredUnit;
+  dom.distanceError.classList.add('hidden');
+  
+  // Show modal with flex display for centering
+  dom.distanceModal.classList.remove('hidden');
+  dom.distanceModal.classList.add('flex');
+  
+  // Focus input after a short delay for transition
+  requestAnimationFrame(() => {
+    dom.distanceInput.focus();
+  });
+}
+
+function hideDistanceModal() {
+  if (!dom.distanceModal) {
+    return;
+  }
+  dom.distanceModal.classList.add('hidden');
+  dom.distanceModal.classList.remove('flex');
+}
+
+function handleDistanceModalCancel() {
+  hideDistanceModal();
+  cancelScaleMode();
+}
+
+function handleDistanceModalConfirm() {
+  const inputValue = dom.distanceInput.value.trim();
+  const unit = dom.distanceUnit.value;
+  
+  // Update preferred unit for future use
+  state.preferredUnit = unit;
+  
+  // Parse the input value
+  const numericValue = parseFloat(inputValue);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    dom.distanceError.classList.remove('hidden');
+    dom.distanceInput.focus();
+    return;
+  }
+  
+  // Convert to meters
+  const meters = convertToMeters(numericValue, unit);
+  if (meters === null) {
+    dom.distanceError.classList.remove('hidden');
+    dom.distanceInput.focus();
+    return;
+  }
+  
+  hideDistanceModal();
+  
+  // Validate and compute using existing logic
+  const validation = validateDistanceInput(String(meters));
   if (!validation.valid) {
     if (validation.error === 'invalid-number') {
       showToast('Invalid distance. Please enter a positive number.', { tone: 'warning' });
@@ -811,6 +885,10 @@ function promptForReferenceDistance() {
   drawReferenceVisualization();
   updateMeasureButtonState();
   showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
+}
+
+function promptForReferenceDistance() {
+  showDistanceModal();
 }
 
 function startScaleMode() {
@@ -1414,6 +1492,13 @@ function cacheDom() {
   // Scale and measure mode buttons
   dom.setScaleButton = $('setScaleButton');
   dom.measureButton = $('measureButton');
+  // Distance input modal
+  dom.distanceModal = $('distanceModal');
+  dom.distanceInput = $('distanceInput');
+  dom.distanceUnit = $('distanceUnit');
+  dom.distanceError = $('distanceError');
+  dom.distanceCancelBtn = $('distanceCancelBtn');
+  dom.distanceConfirmBtn = $('distanceConfirmBtn');
 }
 
 function setupEventHandlers() {
@@ -1438,6 +1523,39 @@ function setupEventHandlers() {
   }
   if (dom.measureButton) {
     dom.measureButton.addEventListener('click', startMeasureMode);
+  }
+  
+  // Distance modal handlers
+  if (dom.distanceCancelBtn) {
+    dom.distanceCancelBtn.addEventListener('click', handleDistanceModalCancel);
+  }
+  if (dom.distanceConfirmBtn) {
+    dom.distanceConfirmBtn.addEventListener('click', handleDistanceModalConfirm);
+  }
+  if (dom.distanceInput) {
+    dom.distanceInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        handleDistanceModalConfirm();
+      } else if (e.key === 'Escape') {
+        handleDistanceModalCancel();
+      }
+    });
+    dom.distanceInput.addEventListener('input', () => {
+      dom.distanceError.classList.add('hidden');
+    });
+  }
+  if (dom.distanceModal) {
+    dom.distanceModal.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        handleDistanceModalCancel();
+      }
+    });
+    // Close on backdrop click
+    dom.distanceModal.addEventListener('click', (e) => {
+      if (e.target === dom.distanceModal) {
+        handleDistanceModalCancel();
+      }
+    });
   }
 }
 
