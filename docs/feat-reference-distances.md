@@ -358,10 +358,43 @@ This phase extracts testable state machine logic from the UI layer into pure fun
 
 ---
 
-### 🔲 Phase 2: UI Layer (Partially Complete)
+### ✅ Phase 2: UI Layer (Complete)
 
-This phase implements the user-facing features: setting a reference distance and measuring arbitrary distances.
+**Date:** 2025-12-21
+
+This phase implements the user-facing features and refactors `index.js` to use the testable state machine.
 
 #### `src/index.js` (UI Integration)
+- [x] Updated imports to use `scale-mode.js` functions
+- [x] Refactored `startScaleMode()` to use `startScaleModeState()`
+- [x] Refactored `cancelScaleMode()` to use `cancelScaleModeState()`
+- [x] Refactored `handleScaleModeClick()` to use `handleScaleModePoint()` with action dispatch
+- [x] Refactored `promptForReferenceDistance()` to use `validateDistanceInput()` and `computeReferenceDistanceFromInput()`
+- [x] Refactored `startMeasureMode()` to use `canStartMeasureMode()` and `startMeasureModeState()`
+- [x] Refactored `cancelMeasureMode()` to use `cancelMeasureModeState()`
+- [x] Refactored `handleMeasureModeClick()` to use `handleMeasureModePoint()` with action dispatch
+- [x] Refactored `updateMeasureLabel()` to use `computeMeasurement()`
+- [x] Refactored `updateMeasureButtonState()` to use `shouldEnableMeasureButton()`
+- [x] Drag handlers use `updateMeasureModePoint()` for state updates
 
+#### Architecture Pattern
+The refactored code follows an **action-based dispatch pattern**:
+1. User interaction (click/drag) → extract pixel coordinates
+2. Call pure state machine function → returns `{ state, action }`
+3. Update logical state with `Object.assign(state.mode, newState)`
+4. Dispatch UI side effects based on `action` string ('show-p2-toast', 'prompt-distance', 'measurement-complete')
 
+This separates:
+- **Testable logic** (in `scale-mode.js`) - state transitions, validation, computations
+- **UI effects** (in `index.js`) - Leaflet markers, toasts, DOM updates
+
+**Test Results:** 147 tests pass, 100% coverage on scale modules, zero code duplication, all quality checks pass
+
+---
+
+### 🔲 Phase 3: Remaining Work
+
+#### Not Yet Implemented
+- [ ] Persistence of `referenceDistance` to IndexedDB
+- [ ] Scale disagreement warning (when GPS and manual scales differ by >10%)
+- [ ] Unit selection UI (m/ft/ft-in preference)

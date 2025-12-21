@@ -7,11 +7,23 @@ import {
   accuracyRingRadiusPixels,
 } from 'snap2map/calibrator';
 import {
-  computeReferenceScale,
-  getActiveScale,
-  measureDistance,
   formatDistance,
 } from './scale/scale.js';
+import {
+  startScaleModeState,
+  handleScaleModePoint,
+  validateDistanceInput,
+  computeReferenceDistanceFromInput,
+  cancelScaleModeState,
+  canStartMeasureMode,
+  startMeasureModeState,
+  handleMeasureModePoint,
+  updateMeasureModePoint,
+  computeMeasurement,
+  cancelMeasureModeState,
+  shouldEnableMeasureButton,
+  shouldEnableSetScaleButton,
+} from './scale/scale-mode.js';
 
 const GUIDED_PAIR_TARGET = 2;
 const MAX_PHOTO_DIMENSION = 2048*2; // pixels
@@ -774,37 +786,31 @@ function updateScaleModeLine() {
 
 function promptForReferenceDistance() {
   const input = prompt('Enter the distance in meters:');
-  if (input === null) {
+  
+  const validation = validateDistanceInput(input);
+  if (!validation.valid) {
+    if (validation.error === 'invalid-number') {
+      showToast('Invalid distance. Please enter a positive number.', { tone: 'warning' });
+    }
     cancelScaleMode();
     return;
   }
   
-  const meters = parseFloat(input);
-  if (!Number.isFinite(meters) || meters <= 0) {
-    showToast('Invalid distance. Please enter a positive number.', { tone: 'warning' });
-    cancelScaleMode();
-    return;
-  }
+  const result = computeReferenceDistanceFromInput(state.scaleMode, validation.meters);
   
-  const { p1, p2 } = state.scaleMode;
-  const metersPerPixel = computeReferenceScale(p1, p2, meters);
-  
-  if (!metersPerPixel) {
+  if (!result.success) {
     showToast('Could not compute scale. Points may be too close.', { tone: 'warning' });
     cancelScaleMode();
     return;
   }
   
-  state.referenceDistance = { p1, p2, meters, metersPerPixel };
+  state.referenceDistance = result.referenceDistance;
   clearScaleModeMarkers();
-  state.scaleMode.active = false;
-  state.scaleMode.step = null;
-  state.scaleMode.p1 = null;
-  state.scaleMode.p2 = null;
+  Object.assign(state.scaleMode, cancelScaleModeState());
   
   drawReferenceVisualization();
   updateMeasureButtonState();
-  showToast(`Scale set: ${formatDistance(meters, state.preferredUnit)} = ${metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
+  showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
 }
 
 function startScaleMode() {
@@ -815,14 +821,12 @@ function startScaleMode() {
     cancelMeasureMode();
   }
   
-  state.scaleMode.active = true;
-  state.scaleMode.step = 'p1';
-  state.scaleMode.p1 = null;
-  state.scaleMode.p2 = null;
+  const newState = startScaleModeState(state.scaleMode);
+  Object.assign(state.scaleMode, newState);
   clearScaleModeMarkers();
   
   if (dom.setScaleButton) {
-    dom.setScaleButton.disabled = true;
+    dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode);
   }
   
   setActiveView('photo');
@@ -831,42 +835,40 @@ function startScaleMode() {
 
 function cancelScaleMode() {
   clearScaleModeMarkers();
-  state.scaleMode.active = false;
-  state.scaleMode.step = null;
-  state.scaleMode.p1 = null;
-  state.scaleMode.p2 = null;
+  Object.assign(state.scaleMode, cancelScaleModeState());
   
   if (dom.setScaleButton) {
-    dom.setScaleButton.disabled = false;
+    dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode);
   }
 }
 
 function handleScaleModeClick(event) {
-  if (!state.scaleMode.active) {
+  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+  const { state: newState, action } = handleScaleModePoint(state.scaleMode, pixel);
+  
+  if (!action) {
     return false;
   }
   
-  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+  // Update logical state
+  Object.assign(state.scaleMode, newState);
   
-  if (state.scaleMode.step === 'p1') {
-    state.scaleMode.p1 = pixel;
+  // Handle UI side effects based on action
+  if (action === 'show-p2-toast') {
     state.scaleMode.marker1 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#3b82f6'),
       draggable: false,
     }).addTo(state.photoMap);
-    state.scaleMode.step = 'p2';
     showToast('Now tap the end point.');
     return true;
   }
   
-  if (state.scaleMode.step === 'p2') {
-    state.scaleMode.p2 = pixel;
+  if (action === 'prompt-distance') {
     state.scaleMode.marker2 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#3b82f6'),
       draggable: false,
     }).addTo(state.photoMap);
     updateScaleModeLine();
-    state.scaleMode.step = 'input';
     promptForReferenceDistance();
     return true;
   }
@@ -903,19 +905,14 @@ function updateMeasureLabel() {
     return;
   }
   
-  const scale = getActiveScale(state);
-  if (!scale) {
-    return;
-  }
-  
-  const meters = measureDistance(p1, p2, scale.metersPerPixel);
-  if (meters === null) {
+  const result = computeMeasurement(state.measureMode, state);
+  if (!result.success) {
     return;
   }
   
   const midLat = (p1.y + p2.y) / 2;
   const midLng = (p1.x + p2.x) / 2;
-  const sourceIcon = scale.source === 'manual' ? '📏' : '📡';
+  const sourceIcon = result.source === 'manual' ? '📏' : '📡';
   
   if (state.measureMode.label) {
     state.measureMode.label.remove();
@@ -924,7 +921,7 @@ function updateMeasureLabel() {
   state.measureMode.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'measure-label',
-      html: `<div style="background:#8b5cf6;color:white;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">${sourceIcon} ${formatDistance(meters, state.preferredUnit)}</div>`,
+      html: `<div style="background:#8b5cf6;color:white;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}</div>`,
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
@@ -953,8 +950,8 @@ function updateMeasureModeLine() {
 }
 
 function startMeasureMode() {
-  const scale = getActiveScale(state);
-  if (!scale) {
+  const check = canStartMeasureMode(state);
+  if (!check.canStart) {
     showToast('Set a reference scale or add GPS pairs first.', { tone: 'warning' });
     return;
   }
@@ -967,39 +964,38 @@ function startMeasureMode() {
   }
   
   clearMeasureModeMarkers();
-  state.measureMode.active = true;
-  state.measureMode.step = 'p1';
-  state.measureMode.p1 = null;
-  state.measureMode.p2 = null;
+  const newState = startMeasureModeState(state.measureMode);
+  Object.assign(state.measureMode, newState);
   
   if (dom.measureButton) {
-    dom.measureButton.disabled = true;
+    dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode);
   }
   
   setActiveView('photo');
-  const sourceText = scale.source === 'manual' ? 'manual scale' : 'GPS calibration';
+  const sourceText = check.scale.source === 'manual' ? 'manual scale' : 'GPS calibration';
   showToast(`Measure mode (${sourceText}). Tap start point.`);
 }
 
 function cancelMeasureMode() {
   clearMeasureModeMarkers();
-  state.measureMode.active = false;
-  state.measureMode.step = null;
-  state.measureMode.p1 = null;
-  state.measureMode.p2 = null;
+  Object.assign(state.measureMode, cancelMeasureModeState());
   
   updateMeasureButtonState();
 }
 
 function handleMeasureModeClick(event) {
-  if (!state.measureMode.active) {
+  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+  const { state: newState, action } = handleMeasureModePoint(state.measureMode, pixel);
+  
+  if (!action) {
     return false;
   }
   
-  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+  // Update logical state
+  Object.assign(state.measureMode, newState);
   
-  if (state.measureMode.step === 'p1') {
-    state.measureMode.p1 = pixel;
+  // Handle UI side effects based on action
+  if (action === 'show-p2-toast') {
     state.measureMode.marker1 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#8b5cf6'),
       draggable: true,
@@ -1007,17 +1003,16 @@ function handleMeasureModeClick(event) {
     
     state.measureMode.marker1.on('drag', () => {
       const latlng = state.measureMode.marker1.getLatLng();
-      state.measureMode.p1 = { x: latlng.lng, y: latlng.lat };
+      const updatedState = updateMeasureModePoint(state.measureMode, 'p1', { x: latlng.lng, y: latlng.lat });
+      Object.assign(state.measureMode, updatedState);
       updateMeasureModeLine();
     });
     
-    state.measureMode.step = 'p2';
     showToast('Tap the end point to measure.');
     return true;
   }
   
-  if (state.measureMode.step === 'p2') {
-    state.measureMode.p2 = pixel;
+  if (action === 'measurement-complete') {
     state.measureMode.marker2 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#8b5cf6'),
       draggable: true,
@@ -1025,15 +1020,15 @@ function handleMeasureModeClick(event) {
     
     state.measureMode.marker2.on('drag', () => {
       const latlng = state.measureMode.marker2.getLatLng();
-      state.measureMode.p2 = { x: latlng.lng, y: latlng.lat };
+      const updatedState = updateMeasureModePoint(state.measureMode, 'p2', { x: latlng.lng, y: latlng.lat });
+      Object.assign(state.measureMode, updatedState);
       updateMeasureModeLine();
     });
     
     updateMeasureModeLine();
-    state.measureMode.step = null;
     
     if (dom.measureButton) {
-      dom.measureButton.disabled = false;
+      dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode);
     }
     
     showToast('Drag endpoints to refine. Tap Measure again for a new measurement.', { duration: 5000 });
@@ -1047,8 +1042,7 @@ function updateMeasureButtonState() {
   if (!dom.measureButton) {
     return;
   }
-  const scale = getActiveScale(state);
-  dom.measureButton.disabled = !scale || state.measureMode.active;
+  dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode);
 }
 
 function recalculateCalibration() {
