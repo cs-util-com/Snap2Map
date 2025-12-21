@@ -121,4 +121,66 @@ We need to extend the application state to store the manual reference.
     *   Verify that setting a reference distance enables the measure tool.
     *   Verify that measurements are accurate based on the reference.
 
+---
+
+## 6. Implementation Progress
+
+### ✅ Phase 1: Backend Math Layer (Completed)
+
+**Date:** 2025-12-21
+
+This phase implements the core math needed to support a fixed reference scale in the calibration pipeline.
+
+#### `src/geo/transformations.js`
+- [x] Implemented `fitSimilarityFixedScale(pairs, fixedScale, weights)` function
+  - Procrustes analysis with fixed scale parameter
+  - Solves only for rotation (θ) and translation (tx, ty)
+  - Supports weighted pairs for IRLS integration
+- [x] Exported via module API
+
+#### `src/geo/transformations.test.js`
+- [x] Added 8 comprehensive unit tests:
+  - Preserves exact fixed scale with known transform
+  - Uses fixed scale even when data suggests different scale
+  - Correctly finds rotation when scale is fixed
+  - Computes correct translation with fixed scale
+  - Returns null for insufficient pairs
+  - Returns null for invalid fixed scale (0, NaN, Infinity)
+  - Returns null for zero total weight
+  - Respects weights in rotation computation
+
+#### `src/calibration/calibrator.js`
+- [x] Updated `calibrateMap` to accept optional `userOptions.referenceScale`
+- [x] Updated `fitModel` to use `fitSimilarityFixedScale` when `referenceScale` is provided and model is 'similarity'
+- [x] Updated `runReweightedFit` to pass `referenceScale` through IRLS pipeline
+- [x] Updated `runRansacForKind` to pass `referenceScale` through RANSAC pipeline
+
+#### `src/calibration/calibrator.test.js`
+- [x] Added 3 integration tests:
+  - `calibrateMap` uses fixed scale when `referenceScale` is provided
+  - Fixed scale overrides natural GPS-derived scale
+  - `referenceScale` only affects similarity model, not affine/homography
+
+**Test Results:** 41 tests pass, 98.41% code coverage
+
+---
+
+### 🔲 Phase 2: UI Layer (Not Started)
+
+This phase implements the user-facing features: setting a reference distance and measuring arbitrary distances.
+
+#### `src/index.js`
+- [ ] Add `referenceDistance` to application state
+- [ ] Implement "Set Scale" mode (`startReferenceMode()`)
+  - Two-tap workflow to define reference line
+  - Input dialog for distance in meters
+  - Visual feedback with dashed line and label
+- [ ] Implement "Measure" mode (`startMeasureMode()`)
+  - Two-tap workflow to draw measurement line
+  - Real-time distance calculation using `pixelsPerMeter`
+  - Draggable endpoints for refinement
+- [ ] Add UI buttons to toolbar
+- [ ] Persistence of `referenceDistance` to IndexedDB
+
+
 
