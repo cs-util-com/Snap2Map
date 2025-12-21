@@ -260,16 +260,30 @@ describe('transformations', () => {
     });
 
     test('respects weights in rotation computation', () => {
-      // Two points suggesting different rotations, weights should favor second
+      // With 2 pairs, cross/dot contributions are geometrically symmetric,
+      // so we use 3 pairs to properly test weighting influence on rotation.
+      // p0: anchor at origin
+      // p1: suggests rotation 0 (pixel +x maps to enu +x)
+      // p2: suggests rotation 90deg (pixel +y maps to enu -x)
       const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
         { pixel: { x: 10, y: 0 }, enu: { x: 10, y: 0 } },
-        { pixel: { x: 0, y: 10 }, enu: { x: 0, y: 10 } },
+        { pixel: { x: 0, y: 10 }, enu: { x: -10, y: 0 } },
       ];
-      const uniformTransform = fitSimilarityFixedScale(pairs, 1, [1, 1]);
-      const weightedTransform = fitSimilarityFixedScale(pairs, 1, [0.01, 1]);
-      // Both should work but give slightly different results due to weighting
-      expect(uniformTransform).not.toBeNull();
-      expect(weightedTransform).not.toBeNull();
+
+      // With equal weights, rotation should be ~45deg
+      const uniformTransform = fitSimilarityFixedScale(pairs, 1, [1, 1, 1]);
+      expect(uniformTransform.rotation).toBeCloseTo(Math.PI / 4);
+
+      // With more weight on p1 (rotation 0), result should be closer to 0
+      const weightedTowardZero = fitSimilarityFixedScale(pairs, 1, [1, 10, 0.1]);
+      expect(weightedTowardZero.rotation).toBeLessThan(Math.PI / 4);
+      expect(weightedTowardZero.rotation).toBeGreaterThan(0);
+
+      // With more weight on p2 (rotation 90deg), result should be closer to PI/2
+      const weightedToward90 = fitSimilarityFixedScale(pairs, 1, [1, 0.1, 10]);
+      expect(weightedToward90.rotation).toBeGreaterThan(Math.PI / 4);
+      expect(weightedToward90.rotation).toBeLessThan(Math.PI / 2);
     });
   });
 });
