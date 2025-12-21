@@ -795,7 +795,6 @@ function convertToMeters(value, unit) {
   }
   switch (unit) {
     case 'ft':
-    case 'ft-in':
       return value / METERS_TO_FEET;
     default:
       return value;
