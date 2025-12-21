@@ -13,7 +13,6 @@ import {
 import {
   startScaleModeState,
   handleScaleModePoint,
-  validateDistanceInput,
   computeReferenceDistanceFromInput,
   cancelScaleModeState,
   canStartMeasureMode,
@@ -841,16 +840,10 @@ function handleDistanceModalConfirm() {
   // Update preferred unit for future use
   state.preferredUnit = unit;
   
-  // Parse the input value
+  // Parse and convert value, relying on convertToMeters for validation
   const numericValue = parseFloat(inputValue);
-  if (!Number.isFinite(numericValue) || numericValue <= 0) {
-    dom.distanceError.classList.remove('hidden');
-    dom.distanceInput.focus();
-    return;
-  }
-  
-  // Convert to meters
   const meters = convertToMeters(numericValue, unit);
+  
   if (meters === null) {
     dom.distanceError.classList.remove('hidden');
     dom.distanceInput.focus();
@@ -859,17 +852,7 @@ function handleDistanceModalConfirm() {
   
   hideDistanceModal();
   
-  // Validate and compute using existing logic
-  const validation = validateDistanceInput(String(meters));
-  if (!validation.valid) {
-    if (validation.error === 'invalid-number') {
-      showToast('Invalid distance. Please enter a positive number.', { tone: 'warning' });
-    }
-    cancelScaleMode();
-    return;
-  }
-  
-  const result = computeReferenceDistanceFromInput(state.scaleMode, validation.meters);
+  const result = computeReferenceDistanceFromInput(state.scaleMode, meters);
   
   if (!result.success) {
     showToast('Could not compute scale. Points may be too close.', { tone: 'warning' });
