@@ -100,6 +100,74 @@ export function fitSimilarity(pairs, weights) {
   };
 }
 
+export function fitSimilarityFixedScale(pairs, fixedScale, weights) {
+  if (pairs.length < 2) {
+    return null;
+  }
+
+  if (!Number.isFinite(fixedScale) || Math.abs(fixedScale) < TOLERANCE) {
+    return null;
+  }
+
+  const w = ensureWeights(pairs.length, weights);
+  let weightSum = 0;
+  let pixelCentroid = { x: 0, y: 0 };
+  let enuCentroid = { x: 0, y: 0 };
+
+  for (let i = 0; i < pairs.length; i += 1) {
+    const weight = w[i];
+    weightSum += weight;
+    pixelCentroid.x += weight * pairs[i].pixel.x;
+    pixelCentroid.y += weight * pairs[i].pixel.y;
+    enuCentroid.x += weight * pairs[i].enu.x;
+    enuCentroid.y += weight * pairs[i].enu.y;
+  }
+
+  if (Math.abs(weightSum) < TOLERANCE) {
+    return null;
+  }
+
+  pixelCentroid = { x: pixelCentroid.x / weightSum, y: pixelCentroid.y / weightSum };
+  enuCentroid = { x: enuCentroid.x / weightSum, y: enuCentroid.y / weightSum };
+
+  // Compute optimal rotation for the fixed scale
+  // We minimize sum of w_i * ||(s*R*p_i + t) - e_i||^2
+  // With fixed s, the optimal rotation angle is found from:
+  // theta = atan2(sum(w*(ey*px - ex*py)), sum(w*(ex*px + ey*py)))
+  let sumCross = 0;
+  let sumDot = 0;
+
+  for (let i = 0; i < pairs.length; i += 1) {
+    const weight = w[i];
+    const px = pairs[i].pixel.x - pixelCentroid.x;
+    const py = pairs[i].pixel.y - pixelCentroid.y;
+    const ex = pairs[i].enu.x - enuCentroid.x;
+    const ey = pairs[i].enu.y - enuCentroid.y;
+
+    // For fixed scale, the rotation that minimizes error:
+    // We want to align s*R*p with e
+    // This gives: theta = atan2(sum(w*(ey*px - ex*py)), sum(w*(ex*px + ey*py)))
+    sumCross += weight * (ey * px - ex * py);
+    sumDot += weight * (ex * px + ey * py);
+  }
+
+  const theta = Math.atan2(sumCross, sumDot);
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+
+  const translationX = enuCentroid.x - fixedScale * (cos * pixelCentroid.x - sin * pixelCentroid.y);
+  const translationY = enuCentroid.y - fixedScale * (sin * pixelCentroid.x + cos * pixelCentroid.y);
+
+  return {
+    type: 'similarity',
+    scale: fixedScale,
+    rotation: theta,
+    cos,
+    sin,
+    translation: { x: translationX, y: translationY },
+  };
+}
+
 function buildNormalEquations(rows, values, variableCount) {
   const ata = Array.from({ length: variableCount }, () => Array(variableCount).fill(0));
   const atb = Array(variableCount).fill(0);
@@ -454,6 +522,7 @@ export function averageScaleFromJacobian(jacobian) {
 const api = {
   TOLERANCE,
   fitSimilarity,
+  fitSimilarityFixedScale,
   fitAffine,
   fitHomography,
   applyTransform,

@@ -1,5 +1,6 @@
 import {
   fitSimilarity,
+  fitSimilarityFixedScale,
   fitAffine,
   fitHomography,
   applyTransform,
