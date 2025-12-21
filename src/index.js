@@ -41,6 +41,11 @@ const state = {
     pairsCompleted: 0,
     pendingToast: false,
   },
+  // Reference distance for manual scale definition (Phase 2 feature)
+  // Structure: { p1: {x, y}, p2: {x, y}, meters: number, metersPerPixel: number }
+  referenceDistance: null,
+  // User's preferred display unit for distances: 'm' | 'ft' | 'ft-in'
+  preferredUnit: 'm',
 };
 
 const dom = {};

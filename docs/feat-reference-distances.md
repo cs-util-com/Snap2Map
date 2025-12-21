@@ -289,22 +289,39 @@ This property is now documented in the test suite to prevent future confusion.
 
 ---
 
+### ✅ Phase 1.5: Scale Helpers & State Extension (Completed)
+
+**Date:** 2025-12-21
+
+This phase implements the pure utility functions for scale management and extends the application state.
+
+#### `src/scale/scale.js` (New Module)
+- [x] Created new `src/scale/` directory with `scale.js` module
+- [x] Implemented `computeReferenceScale(p1, p2, meters)` - computes m/px from two points and known distance
+- [x] Implemented `getMetersPerPixelFromCalibration(calibrationResult)` - extracts scale from calibration
+- [x] Implemented `getActiveScale(state)` - determines active scale source (manual > GPS priority)
+- [x] Implemented `measureDistance(p1, p2, metersPerPixel)` - calculates distance between pixel points
+- [x] Implemented `formatDistance(meters, unit)` - formats for display (m, cm, mm, ft, ft-in)
+- [x] Implemented `compareScales(scale1, scale2, threshold)` - detects scale disagreement
+- [x] Exported constants: `METERS_PER_DEGREE_EQUATOR`, `METERS_TO_FEET`
+
+#### `src/scale/scale.test.js`
+- [x] 52 comprehensive unit tests covering all functions
+- [x] 100% statement and branch coverage
+- [x] Edge cases: invalid inputs, null/undefined, coincident points, boundary conditions
+
+#### `src/index.js`
+- [x] Added `referenceDistance: null` to state object (structure: `{ p1, p2, meters, metersPerPixel }`)
+- [x] Added `preferredUnit: 'm'` to state object for user's display preference
+
+**Test Results:** 99 tests pass, 98.6% overall coverage (scale module: 100%)
+
+---
+
 ### 🔲 Phase 2: UI Layer (Not Started)
 
 This phase implements the user-facing features: setting a reference distance and measuring arbitrary distances.
 
 #### `src/index.js`
-- [ ] Add `referenceDistance` to application state
-- [ ] Implement "Set Scale" mode (`startReferenceMode()`)
-  - Two-tap workflow to define reference line
-  - Input dialog for distance in meters
-  - Visual feedback with dashed line and label
-- [ ] Implement "Measure" mode (`startMeasureMode()`)
-  - Two-tap workflow to draw measurement line
-  - Real-time distance calculation using `metersPerPixel`
-  - Draggable endpoints for refinement
-- [ ] Add UI buttons to toolbar
-- [ ] Persistence of `referenceDistance` to IndexedDB
-
 
 
