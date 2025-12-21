@@ -152,7 +152,7 @@ This phase implements the core math needed to support a fixed reference scale in
   - 2 pairs produce same rotation regardless of weights (geometric symmetry)
   - 3 pairs with one zero weight behaves like 2 pairs
   - Handles negative rotation correctly
-  - Returns null for degenerate collinear pixel points
+  - Returns null for degenerate coincident pixel points
   - Handles 180 degree rotation
 
 #### `src/calibration/calibrator.js`
