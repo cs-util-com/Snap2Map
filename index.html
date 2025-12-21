@@ -8,6 +8,29 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" crossorigin="anonymous">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom marker and label styles for scale/measure features */
+    .scale-marker-dot {
+      width: 14px;
+      height: 14px;
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    .distance-label {
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    .distance-label--measure {
+      padding: 3px 10px;
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <div class="min-h-screen flex flex-col lg:items-stretch">

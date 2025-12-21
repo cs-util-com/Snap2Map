@@ -687,7 +687,7 @@ function useCurrentPositionForPair() {
 function createScaleMarkerIcon(color = '#3b82f6') {
   return L.divIcon({
     className: 'scale-marker',
-    html: `<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    html: `<div class="scale-marker-dot" style="background:${color};"></div>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
   });
@@ -759,7 +759,7 @@ function drawReferenceVisualization() {
   state.referenceMarkers.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'reference-label',
-      html: `<div style="background:#10b981;color:white;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">📏 ${formatDistance(meters, state.preferredUnit)}</div>`,
+      html: `<div class="distance-label" style="background:#10b981;">📏 ${formatDistance(meters, state.preferredUnit)}</div>`,
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
@@ -999,7 +999,7 @@ function updateMeasureLabel() {
   state.measureMode.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'measure-label',
-      html: `<div style="background:#8b5cf6;color:white;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}</div>`,
+      html: `<div class="distance-label distance-label--measure" style="background:#8b5cf6;">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}</div>`,
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
