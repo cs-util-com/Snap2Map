@@ -270,26 +270,3 @@ export function shouldEnableMeasureButton(appState, measureModeState) {
 export function shouldEnableSetScaleButton(scaleModeState) {
   return !scaleModeState.active;
 }
-
-const api = {
-  // Scale mode
-  createScaleModeState,
-  startScaleModeState,
-  handleScaleModePoint,
-  validateDistanceInput,
-  computeReferenceDistanceFromInput,
-  cancelScaleModeState,
-  // Measure mode
-  createMeasureModeState,
-  canStartMeasureMode,
-  startMeasureModeState,
-  handleMeasureModePoint,
-  updateMeasureModePoint,
-  computeMeasurement,
-  cancelMeasureModeState,
-  // UI state
-  shouldEnableMeasureButton,
-  shouldEnableSetScaleButton,
-};
-
-export default api;

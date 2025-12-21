@@ -237,16 +237,3 @@ export function compareScales(scale1, scale2, threshold = 0.10) {
     percentDifference
   };
 }
-
-const api = {
-  computeReferenceScale,
-  getMetersPerPixelFromCalibration,
-  getActiveScale,
-  measureDistance,
-  formatDistance,
-  compareScales,
-  METERS_PER_DEGREE_EQUATOR,
-  METERS_TO_FEET,
-};
-
-export default api;
