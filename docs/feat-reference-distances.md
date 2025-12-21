@@ -88,7 +88,8 @@ We need to extend the application state to store the manual reference.
     2.  **Scale Check**: Calculate the scale of the candidate model ($S_{gps}$).
     3.  **Comparison**: Compare $S_{gps}$ with $S_{manual}$ (from reference distance).
     4.  **Harmonization**:
-        *   **Similarity (2 pairs)**: If a manual reference exists, we can optionally **force** the scale to $S_{manual}$. This reduces the Similarity transform to finding only Rotation ($R$) and Translation ($t$). This is mathematically more robust when GPS accuracy is low but the manual measurement is trusted.
+        *   **Similarity (2 pairs)**: If a manual reference exists, we can optionally **force** the scale to $S_{manual}$. This reduces the Similarity transform to finding only Rotation ($R$) and Translation ($t$).
+            *   **Benefit for GPS Visualization**: This significantly stabilizes the user's position on the map. With only 2 GPS points, the scale is extremely sensitive to GPS noise (e.g., a 5m error can drastically zoom the map in/out). Fixing the scale locks the "zoom level" to the trusted manual measurement, leaving GPS to only solve for position and orientation. This prevents the map from "breathing" or jumping in size as the user moves.
         *   **Affine/Homography (3+ pairs)**: Use $S_{manual}$ as a **validator**. If the local scale of the GPS-derived transform differs significantly (e.g., > 10%) from $S_{manual}$, show a warning: "GPS scale disagrees with manual reference."
 
 ## 4. Code Structure Changes
@@ -96,12 +97,16 @@ We need to extend the application state to store the manual reference.
 ### `src/index.js`
 *   Add `referenceDistance` to `state`.
 *   Implement `startReferenceMode()` and `startMeasureMode()`.
+*   **Interaction Handling**:
+    *   Use `L.Marker` with `draggable: true` for the start and end points of the reference/measurement lines. This allows the user to refine the position after the initial tap (as requested in the UX spec).
+    *   Ensure `L.Polyline` connects these markers and updates in real-time during drag events.
 *   Handle canvas/overlay drawing for the reference line and active measurement line.
 
 ### `src/geo/transformations.js`
 *   Implement `fitSimilarityFixedScale(pairs, fixedScale)`:
     *   Standard Procrustes analysis but with $s$ fixed to `fixedScale`.
     *   Solves for rotation $\theta$ and translation $t_x, t_y$ minimizing the error.
+    *   *Implementation Note*: Reuse the centroid and rotation calculation from `fitSimilarity`. Instead of computing `scale = numerator / denom`, use `scale = fixedScale` and compute translation based on this fixed scale.
 
 ### `src/calibration/calibrator.js`
 *   Update `calibrateMap` to accept an optional `referenceScale`.
