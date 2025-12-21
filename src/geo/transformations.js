@@ -122,26 +122,12 @@ export function fitSimilarityFixedScale(pairs, fixedScale, weights) {
     return null;
   }
 
-  const w = ensureWeights(pairs.length, weights);
-  let weightSum = 0;
-  let pixelCentroid = { x: 0, y: 0 };
-  let enuCentroid = { x: 0, y: 0 };
-
-  for (let i = 0; i < pairs.length; i += 1) {
-    const weight = w[i];
-    weightSum += weight;
-    pixelCentroid.x += weight * pairs[i].pixel.x;
-    pixelCentroid.y += weight * pairs[i].pixel.y;
-    enuCentroid.x += weight * pairs[i].enu.x;
-    enuCentroid.y += weight * pairs[i].enu.y;
-  }
-
-  if (Math.abs(weightSum) < TOLERANCE) {
+  const centroids = computeWeightedCentroids(pairs, weights);
+  if (!centroids) {
     return null;
   }
 
-  pixelCentroid = { x: pixelCentroid.x / weightSum, y: pixelCentroid.y / weightSum };
-  enuCentroid = { x: enuCentroid.x / weightSum, y: enuCentroid.y / weightSum };
+  const { w, pixelCentroid, enuCentroid } = centroids;
 
   // Compute optimal rotation for the fixed scale
   // We minimize sum of w_i * ||(s*R*p_i + t) - e_i||^2
