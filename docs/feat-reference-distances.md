@@ -44,9 +44,10 @@ We need to extend the application state to store the manual reference.
       p1: { x: number, y: number }, // Pixel coordinates
       p2: { x: number, y: number }, // Pixel coordinates
       meters: number,               // User-defined distance
-      pixelsPerMeter: number        // Derived scale: distance(p1, p2) / meters
+      metersPerPixel: number        // Derived scale: meters / distance(p1, p2)
     }
     ```
+    *   **Note**: `metersPerPixel` aligns with the backend's `referenceScale` parameter (meters/pixel), which can be passed directly to `calibrateMap()`.
 *   **Persistence**: This should be added to the `maps` store in `IndexedDB` (or the runtime `state` object in `src/index.js` for the MVP) to persist across sessions.
 
 ## 2. UI/UX Implementation
@@ -71,7 +72,7 @@ We need to extend the application state to store the manual reference.
     1.  User taps "Measure".
     2.  User taps to set a start point of the temporary measure line. (The user can still zoom and move around on the image while doing so)
     3. User taps to set the end point of the temporary measure line. (The user can still zoom and move around on the image while doing so)
-    4.  **Real-time Feedback**: A label on the line shows the distance in meters, calculated as `pixelDistance / state.referenceDistance.pixelsPerMeter`.
+    4.  **Real-time Feedback**: A label on the line shows the distance in meters, calculated as `pixelDistance * state.referenceDistance.metersPerPixel`.
     5. Afterwards the user can still long press and drag the start and end points of the measure line around on the image to refine their initial placement of these 2 points
 
 ## 3. Logic & Calibration Integration
@@ -198,7 +199,7 @@ This phase implements the user-facing features: setting a reference distance and
   - Visual feedback with dashed line and label
 - [ ] Implement "Measure" mode (`startMeasureMode()`)
   - Two-tap workflow to draw measurement line
-  - Real-time distance calculation using `pixelsPerMeter`
+  - Real-time distance calculation using `metersPerPixel`
   - Draggable endpoints for refinement
 - [ ] Add UI buttons to toolbar
 - [ ] Persistence of `referenceDistance` to IndexedDB
