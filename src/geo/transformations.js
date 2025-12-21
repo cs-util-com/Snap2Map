@@ -135,6 +135,7 @@ export function fitSimilarityFixedScale(pairs, fixedScale, weights) {
   // theta = atan2(sum(w*(ey*px - ex*py)), sum(w*(ex*px + ey*py)))
   let sumCross = 0;
   let sumDot = 0;
+  let pixelVariance = 0;
 
   for (let i = 0; i < pairs.length; i += 1) {
     const weight = w[i];
@@ -148,6 +149,12 @@ export function fitSimilarityFixedScale(pairs, fixedScale, weights) {
     // This gives: theta = atan2(sum(w*(ey*px - ex*py)), sum(w*(ex*px + ey*py)))
     sumCross += weight * (ey * px - ex * py);
     sumDot += weight * (ex * px + ey * py);
+    pixelVariance += weight * (px * px + py * py);
+  }
+
+  // Degenerate case: all pixel points coincide, rotation is undefined
+  if (Math.abs(pixelVariance) < TOLERANCE) {
+    return null;
   }
 
   const theta = Math.atan2(sumCross, sumDot);

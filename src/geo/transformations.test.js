@@ -340,21 +340,17 @@ describe('transformations', () => {
       expect(transform.scale).toBe(fixedScale);
     });
 
-    test('returns null for degenerate collinear pixel points', () => {
+    test('returns null for degenerate coincident pixel points', () => {
       // All pixel points on same location - cannot determine rotation
       const pairs = [
         { pixel: { x: 5, y: 5 }, enu: { x: 0, y: 0 } },
         { pixel: { x: 5, y: 5 }, enu: { x: 10, y: 10 } },
       ];
 
-      // This should return a valid transform (rotation is arbitrary but consistent)
-      // or handle gracefully - let's verify the behavior
+      // When pixel points coincide, rotation is mathematically undefined
+      // The function should return null to indicate invalid input
       const transform = fitSimilarityFixedScale(pairs, 1);
-      // When pixel points coincide, rotation is undefined (atan2(0,0))
-      // The function should still return a transform with the fixed scale
-      if (transform !== null) {
-        expect(transform.scale).toBe(1);
-      }
+      expect(transform).toBeNull();
     });
 
     test('handles 180 degree rotation', () => {
