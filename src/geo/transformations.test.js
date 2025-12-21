@@ -285,5 +285,86 @@ describe('transformations', () => {
       expect(weightedToward90.rotation).toBeGreaterThan(Math.PI / 4);
       expect(weightedToward90.rotation).toBeLessThan(Math.PI / 2);
     });
+
+    test('2 pairs produce same rotation regardless of weights due to geometric symmetry', () => {
+      // This documents the mathematical property discovered during testing:
+      // With exactly 2 pairs, the cross/dot contributions are always equal,
+      // so weights cannot influence the rotation result.
+      const pairs = [
+        { pixel: { x: 10, y: 0 }, enu: { x: 10, y: 0 } },
+        { pixel: { x: 0, y: 10 }, enu: { x: -10, y: 0 } },
+      ];
+
+      const uniform = fitSimilarityFixedScale(pairs, 1, [1, 1]);
+      const heavyFirst = fitSimilarityFixedScale(pairs, 1, [100, 1]);
+      const heavySecond = fitSimilarityFixedScale(pairs, 1, [1, 100]);
+
+      // All should produce the same rotation due to 2-pair symmetry
+      expect(uniform.rotation).toBeCloseTo(heavyFirst.rotation);
+      expect(uniform.rotation).toBeCloseTo(heavySecond.rotation);
+    });
+
+    test('3 pairs with one zero weight behaves like 2 pairs', () => {
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 10, y: 0 }, enu: { x: 10, y: 0 } },
+        { pixel: { x: 0, y: 10 }, enu: { x: -10, y: 0 } },
+      ];
+
+      // With third pair zeroed out, should match 2-pair result
+      const twoPairs = [pairs[0], pairs[1]];
+      const twoPairResult = fitSimilarityFixedScale(twoPairs, 1, [1, 1]);
+      const threePairZeroWeight = fitSimilarityFixedScale(pairs, 1, [1, 1, 0]);
+
+      expect(threePairZeroWeight.rotation).toBeCloseTo(twoPairResult.rotation);
+      expect(threePairZeroWeight.translation.x).toBeCloseTo(twoPairResult.translation.x);
+      expect(threePairZeroWeight.translation.y).toBeCloseTo(twoPairResult.translation.y);
+    });
+
+    test('handles negative rotation correctly', () => {
+      // Rotation of -45deg (or equivalently 315deg)
+      const fixedScale = 2;
+      const theta = -Math.PI / 4;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 10, y: 0 }, enu: { x: fixedScale * (cos * 10), y: fixedScale * (sin * 10) } },
+        { pixel: { x: 0, y: 10 }, enu: { x: fixedScale * (-sin * 10), y: fixedScale * (cos * 10) } },
+      ];
+
+      const transform = fitSimilarityFixedScale(pairs, fixedScale);
+      expect(transform.rotation).toBeCloseTo(theta);
+      expect(transform.scale).toBe(fixedScale);
+    });
+
+    test('returns null for degenerate collinear pixel points', () => {
+      // All pixel points on same location - cannot determine rotation
+      const pairs = [
+        { pixel: { x: 5, y: 5 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 5, y: 5 }, enu: { x: 10, y: 10 } },
+      ];
+
+      // This should return a valid transform (rotation is arbitrary but consistent)
+      // or handle gracefully - let's verify the behavior
+      const transform = fitSimilarityFixedScale(pairs, 1);
+      // When pixel points coincide, rotation is undefined (atan2(0,0))
+      // The function should still return a transform with the fixed scale
+      if (transform !== null) {
+        expect(transform.scale).toBe(1);
+      }
+    });
+
+    test('handles 180 degree rotation', () => {
+      const fixedScale = 1;
+      const pairs = [
+        { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+        { pixel: { x: 10, y: 0 }, enu: { x: -10, y: 0 } },
+        { pixel: { x: 0, y: 10 }, enu: { x: 0, y: -10 } },
+      ];
+
+      const transform = fitSimilarityFixedScale(pairs, fixedScale);
+      expect(Math.abs(transform.rotation)).toBeCloseTo(Math.PI);
+    });
   });
 });

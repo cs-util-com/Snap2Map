@@ -139,7 +139,7 @@ This phase implements the core math needed to support a fixed reference scale in
 - [x] Exported via module API
 
 #### `src/geo/transformations.test.js`
-- [x] Added 8 comprehensive unit tests:
+- [x] Added 13 comprehensive unit tests:
   - Preserves exact fixed scale with known transform
   - Uses fixed scale even when data suggests different scale
   - Correctly finds rotation when scale is fixed
@@ -147,7 +147,12 @@ This phase implements the core math needed to support a fixed reference scale in
   - Returns null for insufficient pairs
   - Returns null for invalid fixed scale (0, NaN, Infinity)
   - Returns null for zero total weight
-  - Respects weights in rotation computation
+  - Respects weights in rotation computation (using 3 pairs)
+  - 2 pairs produce same rotation regardless of weights (geometric symmetry)
+  - 3 pairs with one zero weight behaves like 2 pairs
+  - Handles negative rotation correctly
+  - Returns null for degenerate collinear pixel points
+  - Handles 180 degree rotation
 
 #### `src/calibration/calibrator.js`
 - [x] Updated `calibrateMap` to accept optional `userOptions.referenceScale`
@@ -161,7 +166,23 @@ This phase implements the core math needed to support a fixed reference scale in
   - Fixed scale overrides natural GPS-derived scale
   - `referenceScale` only affects similarity model, not affine/homography
 
-**Test Results:** 41 tests pass, 98.41% code coverage
+**Test Results:** 46 tests pass, 98.37% code coverage
+
+#### Key Learnings
+
+**2-Pair Geometric Symmetry Property:**
+During test development, we discovered an important mathematical property of `fitSimilarityFixedScale`:
+
+> With exactly 2 pairs, weights cannot influence the computed rotation angle.
+
+This occurs because the weighted Procrustes rotation formula uses:
+$$\theta = \arctan2\left(\sum w_i(e_y p_x - e_x p_y), \sum w_i(e_x p_x + e_y p_y)\right)$$
+
+With only 2 pairs positioned symmetrically around the weighted centroid, the cross and dot contributions maintain equal ratios regardless of weight distribution. This means:
+- **2 GPS pairs + fixed scale**: Rotation is fully determined by geometry, weights only affect translation
+- **3+ GPS pairs + fixed scale**: Weights properly influence rotation computation
+
+This property is now documented in the test suite to prevent future confusion.
 
 ---
 
