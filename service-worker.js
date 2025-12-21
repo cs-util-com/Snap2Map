@@ -62,7 +62,7 @@ self.addEventListener('fetch', (event) => {
           if (response) {
             return response;
           }
-        } catch (error) {
+        } catch {
           // network request failed, fall back to cache if possible
         }
 
@@ -87,7 +87,7 @@ self.addEventListener('fetch', (event) => {
 
       try {
         return await fetchAndUpdate();
-      } catch (error) {
+      } catch {
         if (cached) {
           return cached;
         }

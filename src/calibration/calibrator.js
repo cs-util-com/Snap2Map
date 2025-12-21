@@ -1,6 +1,7 @@
 import { computeOrigin, wgs84ToEnu } from '../geo/coordinate.js';
 import {
   fitSimilarity,
+  fitSimilarityFixedScale,
   fitAffine,
   fitHomography,
   applyTransform,
@@ -54,7 +55,10 @@ function sampleUniqueIndexes(randomFn, total, sampleSize) {
   return Array.from(selected);
 }
 
-function fitModel(kind, pairs, weights) {
+function fitModel(kind, pairs, weights, referenceScale) {
+  if (kind === 'similarity' && referenceScale != null) {
+    return fitSimilarityFixedScale(pairs, referenceScale, weights);
+  }
   const estimator = MODEL_PREFERENCES[kind].estimator;
   return estimator(pairs, weights);
 }
@@ -77,12 +81,12 @@ function huberWeight(residual, delta) {
   return delta / absResidual;
 }
 
-function runReweightedFit(kind, pairs, options) {
+function runReweightedFit(kind, pairs, options, referenceScale) {
   let weights = Array.from({ length: pairs.length }, () => 1);
   let model = null;
 
   for (let iteration = 0; iteration <= options.irlsIterations; iteration += 1) {
-    model = fitModel(kind, pairs, weights);
+    model = fitModel(kind, pairs, weights, referenceScale);
     if (!model) {
       return null;
     }
@@ -160,7 +164,7 @@ export function computeAccuracyRing(calibration, gpsAccuracy) {
   };
 }
 
-function runRansacForKind(kind, pairs, options) {
+function runRansacForKind(kind, pairs, options, referenceScale) {
   const { minPairs } = MODEL_PREFERENCES[kind];
   if (pairs.length < minPairs) {
     return null;
@@ -172,7 +176,7 @@ function runRansacForKind(kind, pairs, options) {
   for (let iteration = 0; iteration < iterationBudget; iteration += 1) {
     const sampleIndexes = sampleUniqueIndexes(options.random, pairs.length, minPairs);
     const sample = sampleIndexes.map((index) => pairs[index]);
-    const candidate = fitModel(kind, sample);
+    const candidate = fitModel(kind, sample, undefined, referenceScale);
     if (!candidate) {
       continue;
     }
@@ -188,7 +192,7 @@ function runRansacForKind(kind, pairs, options) {
   }
 
   const inlierPairs = pairs.filter((pair, index) => best.metrics.inliers[index]);
-  const refined = runReweightedFit(kind, inlierPairs, options);
+  const refined = runReweightedFit(kind, inlierPairs, options, referenceScale);
   if (!refined) {
     return null;
   }
@@ -222,12 +226,13 @@ export function calibrateMap(pairs, userOptions = {}) {
   const options = { ...DEFAULT_OPTIONS, ...userOptions };
   const origin = userOptions.origin || computeOrigin(pairs);
   const enrichedPairs = createEnrichedPairs(pairs, origin);
+  const referenceScale = userOptions.referenceScale;
 
   const modelKinds = pickModelKinds(enrichedPairs.length);
 
   for (let i = 0; i < modelKinds.length; i += 1) {
     const kind = modelKinds[i];
-    const result = runRansacForKind(kind, enrichedPairs, options);
+    const result = runRansacForKind(kind, enrichedPairs, options, referenceScale);
     if (result) {
       const { metrics } = result;
       const combined = {

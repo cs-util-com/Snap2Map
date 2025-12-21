@@ -116,6 +116,53 @@ describe('calibrator', () => {
     expect(result.statusMessage.level).toBe('low');
   });
 
+  test('calibrateMap uses fixed scale when referenceScale is provided', () => {
+    const referenceScale = 0.5; // meters per pixel
+    const pairs = [
+      { pixel: { x: 0, y: 0 }, wgs84: { lat: origin.lat, lon: origin.lon } },
+      { pixel: { x: 200, y: 0 }, wgs84: { lat: origin.lat, lon: origin.lon + 0.002 } },
+    ];
+    const result = calibrateMap(pairs, { origin, iterations: 5, random: makeRandomGenerator(), referenceScale });
+    expect(result.status).toBe('ok');
+    expect(result.kind).toBe('similarity');
+    expect(result.model.scale).toBe(referenceScale);
+  });
+
+  test('calibrateMap with referenceScale ignores natural GPS-derived scale', () => {
+    // Create pairs that would naturally give a scale of ~1.11 m/px
+    // (based on lon difference of 0.002 degrees ≈ 222m at this latitude, over 200px)
+    const pairs = [
+      { pixel: { x: 0, y: 0 }, wgs84: { lat: origin.lat, lon: origin.lon } },
+      { pixel: { x: 200, y: 0 }, wgs84: { lat: origin.lat, lon: origin.lon + 0.002 } },
+    ];
+
+    // First, calibrate without referenceScale to get the natural scale
+    const naturalResult = calibrateMap(pairs, { origin, iterations: 5, random: makeRandomGenerator() });
+    expect(naturalResult.model.scale).toBeGreaterThan(0.5);
+
+    // Now calibrate with a moderately different fixed scale (close enough to still produce inliers)
+    const fixedScale = naturalResult.model.scale * 0.8;
+    const fixedResult = calibrateMap(pairs, { origin, iterations: 5, random: makeRandomGenerator(), referenceScale: fixedScale });
+    expect(fixedResult.status).toBe('ok');
+    expect(fixedResult.model.scale).toBe(fixedScale);
+    expect(fixedResult.model.scale).not.toBeCloseTo(naturalResult.model.scale);
+  });
+
+  test('referenceScale only affects similarity model, not affine or homography', () => {
+    const referenceScale = 0.5;
+    // 3 pairs = affine model
+    const threePairs = [
+      { pixel: { x: 0, y: 0 }, wgs84: { lat: origin.lat, lon: origin.lon } },
+      { pixel: { x: 100, y: 0 }, wgs84: { lat: origin.lat, lon: origin.lon + 0.001 } },
+      { pixel: { x: 0, y: 60 }, wgs84: { lat: origin.lat + 0.0005, lon: origin.lon } },
+    ];
+    const result = calibrateMap(threePairs, { origin, iterations: 10, random: makeRandomGenerator(), referenceScale });
+    expect(result.status).toBe('ok');
+    expect(result.kind).toBe('affine');
+    // Affine doesn't have a single 'scale' property - it uses a matrix
+    expect(result.model.matrix).toBeDefined();
+  });
+
   test('calibrateMap selects affine model for three pairs', () => {
     const pairs = [
       { pixel: { x: 0, y: 0 }, wgs84: { lat: origin.lat, lon: origin.lon } },

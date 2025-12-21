@@ -920,7 +920,7 @@ function maybePromptGeolocationForOsm() {
         .catch(() => {
           if (shouldPrompt) doRequest();
         });
-    } catch (_) {
+    } catch {
       if (shouldPrompt) doRequest();
     }
   } else {
