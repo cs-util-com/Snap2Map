@@ -57,6 +57,8 @@ We need to extend the application state to store the manual reference.
     1.  User taps "Set Scale".
     2.  Toast: "Tap start point of known distance".
     3.  User taps point A on the photo.
+        * He should be able to zoom in on the image while doing these tabs, to place the points as accurate as possible. 
+        * So zooming in general via pinch gestures (or mouse wheel on desktop) in the image would be an important UX to have in general in the app (in case it does not exist yet)
     4.  Toast: "Tap end point".
     5.  User taps point B on the photo.
     6.  **Input Dialog**: A prompt appears asking "Enter distance in meters".
@@ -67,8 +69,10 @@ We need to extend the application state to store the manual reference.
 *   **Entry Point**: "Measure" button (icon: tape measure), enabled **only** if `referenceDistance` is set.
 *   **Interaction Flow**:
     1.  User taps "Measure".
-    2.  User taps/drags to draw a temporary line.
-    3.  **Real-time Feedback**: A label on the line shows the distance in meters, calculated as `pixelDistance / state.referenceDistance.pixelsPerMeter`.
+    2.  User taps to set a start point of the temporary measure line. (He can still zoom and move around on the image while doing so)
+    3. user tabs to set the end point of the temporary measure line. (He can still zoom and move around on the image while doing so)
+    4.  **Real-time Feedback**: A label on the line shows the distance in meters, calculated as `pixelDistance / state.referenceDistance.pixelsPerMeter`.
+    5. Afterwards he can still long press and drag the start and end points of the measure line around on the image to refine his initial placement of these 2 points
 
 ## 3. Logic & Calibration Integration
 
