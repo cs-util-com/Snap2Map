@@ -318,10 +318,50 @@ This phase implements the pure utility functions for scale management and extend
 
 ---
 
-### 🔲 Phase 2: UI Layer (Not Started)
+### ✅ Phase 1.6: State Machine Extraction (Completed)
+
+**Date:** 2025-12-21
+
+This phase extracts testable state machine logic from the UI layer into pure functions.
+
+#### `src/scale/scale-mode.js` (New Module)
+- [x] Created `scale-mode.js` with pure state machine functions
+- [x] Extracted shared `handleTwoPointModeClick()` helper (eliminates duplication)
+
+**Scale Mode Functions:**
+- [x] `createScaleModeState()` - Creates initial state
+- [x] `startScaleModeState(currentState)` - Activates scale mode
+- [x] `handleScaleModePoint(currentState, point)` - Processes point clicks
+- [x] `validateDistanceInput(input)` - Validates user's distance input
+- [x] `computeReferenceDistanceFromInput(scaleModeState, meters)` - Computes reference distance
+- [x] `cancelScaleModeState()` - Resets state
+
+**Measure Mode Functions:**
+- [x] `createMeasureModeState()` - Creates initial state
+- [x] `canStartMeasureMode(appState)` - Checks if scale is available
+- [x] `startMeasureModeState(currentState)` - Activates measure mode
+- [x] `handleMeasureModePoint(currentState, point)` - Processes point clicks
+- [x] `updateMeasureModePoint(currentState, pointId, newPoint)` - Handles drag updates
+- [x] `computeMeasurement(measureState, appState)` - Computes distance
+- [x] `cancelMeasureModeState()` - Resets state
+
+**UI State Derivation:**
+- [x] `shouldEnableMeasureButton(appState, measureModeState)` - Button enablement logic
+- [x] `shouldEnableSetScaleButton(scaleModeState)` - Button enablement logic
+
+#### `src/scale/scale-mode.test.js`
+- [x] 48 comprehensive unit tests
+- [x] 100% statement and branch coverage
+- [x] Tests state transitions, validation, error handling, UI derivation
+
+**Test Results:** 147 tests pass, scale modules at 100% coverage, zero code duplication
+
+---
+
+### 🔲 Phase 2: UI Layer (Partially Complete)
 
 This phase implements the user-facing features: setting a reference distance and measuring arbitrary distances.
 
-#### `src/index.js`
+#### `src/index.js` (UI Integration)
 
 
