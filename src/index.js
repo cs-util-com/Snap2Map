@@ -6,6 +6,12 @@ import {
   projectLocationToPixel,
   accuracyRingRadiusPixels,
 } from 'snap2map/calibrator';
+import {
+  computeReferenceScale,
+  getActiveScale,
+  measureDistance,
+  formatDistance,
+} from './scale/scale.js';
 
 const GUIDED_PAIR_TARGET = 2;
 const MAX_PHOTO_DIMENSION = 2048*2; // pixels
@@ -46,6 +52,34 @@ const state = {
   referenceDistance: null,
   // User's preferred display unit for distances: 'm' | 'ft' | 'ft-in'
   preferredUnit: 'm',
+  // Scale mode: setting the reference distance line
+  scaleMode: {
+    active: false,
+    step: null, // 'p1' | 'p2' | 'input'
+    p1: null,
+    p2: null,
+    marker1: null,
+    marker2: null,
+    line: null,
+  },
+  // Reference distance visualization (persists after scaleMode is done)
+  referenceMarkers: {
+    marker1: null,
+    marker2: null,
+    line: null,
+    label: null,
+  },
+  // Measure mode: measuring arbitrary distances
+  measureMode: {
+    active: false,
+    step: null, // 'p1' | 'p2'
+    p1: null,
+    p2: null,
+    marker1: null,
+    marker2: null,
+    line: null,
+    label: null,
+  },
 };
 
 const dom = {};
@@ -552,6 +586,17 @@ function onPairTableClick(event) {
 }
 
 function handlePhotoClick(event) {
+  // Route to scale mode handler first
+  if (handleScaleModeClick(event)) {
+    return;
+  }
+  
+  // Route to measure mode handler
+  if (handleMeasureModeClick(event)) {
+    return;
+  }
+  
+  // Default: pair mode
   if (!state.activePair) {
     return;
   }
@@ -622,12 +667,397 @@ function useCurrentPositionForPair() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Scale Mode: Set reference distance for manual scale definition
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createScaleMarkerIcon(color = '#3b82f6') {
+  return L.divIcon({
+    className: 'scale-marker',
+    html: `<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+function clearScaleModeMarkers() {
+  if (state.scaleMode.marker1) {
+    state.scaleMode.marker1.remove();
+    state.scaleMode.marker1 = null;
+  }
+  if (state.scaleMode.marker2) {
+    state.scaleMode.marker2.remove();
+    state.scaleMode.marker2 = null;
+  }
+  if (state.scaleMode.line) {
+    state.scaleMode.line.remove();
+    state.scaleMode.line = null;
+  }
+}
+
+function clearReferenceVisualization() {
+  if (state.referenceMarkers.marker1) {
+    state.referenceMarkers.marker1.remove();
+    state.referenceMarkers.marker1 = null;
+  }
+  if (state.referenceMarkers.marker2) {
+    state.referenceMarkers.marker2.remove();
+    state.referenceMarkers.marker2 = null;
+  }
+  if (state.referenceMarkers.line) {
+    state.referenceMarkers.line.remove();
+    state.referenceMarkers.line = null;
+  }
+  if (state.referenceMarkers.label) {
+    state.referenceMarkers.label.remove();
+    state.referenceMarkers.label = null;
+  }
+}
+
+function drawReferenceVisualization() {
+  if (!state.referenceDistance || !state.photoMap) {
+    return;
+  }
+  clearReferenceVisualization();
+  
+  const { p1, p2, meters } = state.referenceDistance;
+  const latlng1 = L.latLng(p1.y, p1.x);
+  const latlng2 = L.latLng(p2.y, p2.x);
+  
+  state.referenceMarkers.marker1 = L.marker(latlng1, {
+    icon: createScaleMarkerIcon('#10b981'),
+    draggable: false,
+  }).addTo(state.photoMap);
+  
+  state.referenceMarkers.marker2 = L.marker(latlng2, {
+    icon: createScaleMarkerIcon('#10b981'),
+    draggable: false,
+  }).addTo(state.photoMap);
+  
+  state.referenceMarkers.line = L.polyline([latlng1, latlng2], {
+    color: '#10b981',
+    weight: 3,
+    dashArray: '8, 8',
+    opacity: 0.9,
+  }).addTo(state.photoMap);
+  
+  const midLat = (p1.y + p2.y) / 2;
+  const midLng = (p1.x + p2.x) / 2;
+  state.referenceMarkers.label = L.marker(L.latLng(midLat, midLng), {
+    icon: L.divIcon({
+      className: 'reference-label',
+      html: `<div style="background:#10b981;color:white;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">📏 ${formatDistance(meters, state.preferredUnit)}</div>`,
+      iconAnchor: [0, 0],
+    }),
+  }).addTo(state.photoMap);
+}
+
+function updateScaleModeLine() {
+  const { p1, p2 } = state.scaleMode;
+  if (!p1 || !p2) {
+    return;
+  }
+  const latlng1 = L.latLng(p1.y, p1.x);
+  const latlng2 = L.latLng(p2.y, p2.x);
+  
+  if (state.scaleMode.line) {
+    state.scaleMode.line.setLatLngs([latlng1, latlng2]);
+  } else {
+    state.scaleMode.line = L.polyline([latlng1, latlng2], {
+      color: '#3b82f6',
+      weight: 3,
+      dashArray: '6, 6',
+      opacity: 0.9,
+    }).addTo(state.photoMap);
+  }
+}
+
+function promptForReferenceDistance() {
+  const input = prompt('Enter the distance in meters:');
+  if (input === null) {
+    cancelScaleMode();
+    return;
+  }
+  
+  const meters = parseFloat(input);
+  if (!Number.isFinite(meters) || meters <= 0) {
+    showToast('Invalid distance. Please enter a positive number.', { tone: 'warning' });
+    cancelScaleMode();
+    return;
+  }
+  
+  const { p1, p2 } = state.scaleMode;
+  const metersPerPixel = computeReferenceScale(p1, p2, meters);
+  
+  if (!metersPerPixel) {
+    showToast('Could not compute scale. Points may be too close.', { tone: 'warning' });
+    cancelScaleMode();
+    return;
+  }
+  
+  state.referenceDistance = { p1, p2, meters, metersPerPixel };
+  clearScaleModeMarkers();
+  state.scaleMode.active = false;
+  state.scaleMode.step = null;
+  state.scaleMode.p1 = null;
+  state.scaleMode.p2 = null;
+  
+  drawReferenceVisualization();
+  updateMeasureButtonState();
+  showToast(`Scale set: ${formatDistance(meters, state.preferredUnit)} = ${metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
+}
+
+function startScaleMode() {
+  if (state.activePair) {
+    cancelPairMode();
+  }
+  if (state.measureMode.active) {
+    cancelMeasureMode();
+  }
+  
+  state.scaleMode.active = true;
+  state.scaleMode.step = 'p1';
+  state.scaleMode.p1 = null;
+  state.scaleMode.p2 = null;
+  clearScaleModeMarkers();
+  
+  if (dom.setScaleButton) {
+    dom.setScaleButton.disabled = true;
+  }
+  
+  setActiveView('photo');
+  showToast('Tap the start point of a known distance.');
+}
+
+function cancelScaleMode() {
+  clearScaleModeMarkers();
+  state.scaleMode.active = false;
+  state.scaleMode.step = null;
+  state.scaleMode.p1 = null;
+  state.scaleMode.p2 = null;
+  
+  if (dom.setScaleButton) {
+    dom.setScaleButton.disabled = false;
+  }
+}
+
+function handleScaleModeClick(event) {
+  if (!state.scaleMode.active) {
+    return false;
+  }
+  
+  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+  
+  if (state.scaleMode.step === 'p1') {
+    state.scaleMode.p1 = pixel;
+    state.scaleMode.marker1 = L.marker(event.latlng, {
+      icon: createScaleMarkerIcon('#3b82f6'),
+      draggable: false,
+    }).addTo(state.photoMap);
+    state.scaleMode.step = 'p2';
+    showToast('Now tap the end point.');
+    return true;
+  }
+  
+  if (state.scaleMode.step === 'p2') {
+    state.scaleMode.p2 = pixel;
+    state.scaleMode.marker2 = L.marker(event.latlng, {
+      icon: createScaleMarkerIcon('#3b82f6'),
+      draggable: false,
+    }).addTo(state.photoMap);
+    updateScaleModeLine();
+    state.scaleMode.step = 'input';
+    promptForReferenceDistance();
+    return true;
+  }
+  
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Measure Mode: Measure arbitrary distances using the active scale
+// ─────────────────────────────────────────────────────────────────────────────
+
+function clearMeasureModeMarkers() {
+  if (state.measureMode.marker1) {
+    state.measureMode.marker1.remove();
+    state.measureMode.marker1 = null;
+  }
+  if (state.measureMode.marker2) {
+    state.measureMode.marker2.remove();
+    state.measureMode.marker2 = null;
+  }
+  if (state.measureMode.line) {
+    state.measureMode.line.remove();
+    state.measureMode.line = null;
+  }
+  if (state.measureMode.label) {
+    state.measureMode.label.remove();
+    state.measureMode.label = null;
+  }
+}
+
+function updateMeasureLabel() {
+  const { p1, p2 } = state.measureMode;
+  if (!p1 || !p2) {
+    return;
+  }
+  
+  const scale = getActiveScale(state);
+  if (!scale) {
+    return;
+  }
+  
+  const meters = measureDistance(p1, p2, scale.metersPerPixel);
+  if (meters === null) {
+    return;
+  }
+  
+  const midLat = (p1.y + p2.y) / 2;
+  const midLng = (p1.x + p2.x) / 2;
+  const sourceIcon = scale.source === 'manual' ? '📏' : '📡';
+  
+  if (state.measureMode.label) {
+    state.measureMode.label.remove();
+  }
+  
+  state.measureMode.label = L.marker(L.latLng(midLat, midLng), {
+    icon: L.divIcon({
+      className: 'measure-label',
+      html: `<div style="background:#8b5cf6;color:white;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">${sourceIcon} ${formatDistance(meters, state.preferredUnit)}</div>`,
+      iconAnchor: [0, 0],
+    }),
+  }).addTo(state.photoMap);
+}
+
+function updateMeasureModeLine() {
+  const { p1, p2 } = state.measureMode;
+  if (!p1 || !p2) {
+    return;
+  }
+  
+  const latlng1 = L.latLng(p1.y, p1.x);
+  const latlng2 = L.latLng(p2.y, p2.x);
+  
+  if (state.measureMode.line) {
+    state.measureMode.line.setLatLngs([latlng1, latlng2]);
+  } else {
+    state.measureMode.line = L.polyline([latlng1, latlng2], {
+      color: '#8b5cf6',
+      weight: 3,
+      opacity: 0.9,
+    }).addTo(state.photoMap);
+  }
+  
+  updateMeasureLabel();
+}
+
+function startMeasureMode() {
+  const scale = getActiveScale(state);
+  if (!scale) {
+    showToast('Set a reference scale or add GPS pairs first.', { tone: 'warning' });
+    return;
+  }
+  
+  if (state.activePair) {
+    cancelPairMode();
+  }
+  if (state.scaleMode.active) {
+    cancelScaleMode();
+  }
+  
+  clearMeasureModeMarkers();
+  state.measureMode.active = true;
+  state.measureMode.step = 'p1';
+  state.measureMode.p1 = null;
+  state.measureMode.p2 = null;
+  
+  if (dom.measureButton) {
+    dom.measureButton.disabled = true;
+  }
+  
+  setActiveView('photo');
+  const sourceText = scale.source === 'manual' ? 'manual scale' : 'GPS calibration';
+  showToast(`Measure mode (${sourceText}). Tap start point.`);
+}
+
+function cancelMeasureMode() {
+  clearMeasureModeMarkers();
+  state.measureMode.active = false;
+  state.measureMode.step = null;
+  state.measureMode.p1 = null;
+  state.measureMode.p2 = null;
+  
+  updateMeasureButtonState();
+}
+
+function handleMeasureModeClick(event) {
+  if (!state.measureMode.active) {
+    return false;
+  }
+  
+  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+  
+  if (state.measureMode.step === 'p1') {
+    state.measureMode.p1 = pixel;
+    state.measureMode.marker1 = L.marker(event.latlng, {
+      icon: createScaleMarkerIcon('#8b5cf6'),
+      draggable: true,
+    }).addTo(state.photoMap);
+    
+    state.measureMode.marker1.on('drag', () => {
+      const latlng = state.measureMode.marker1.getLatLng();
+      state.measureMode.p1 = { x: latlng.lng, y: latlng.lat };
+      updateMeasureModeLine();
+    });
+    
+    state.measureMode.step = 'p2';
+    showToast('Tap the end point to measure.');
+    return true;
+  }
+  
+  if (state.measureMode.step === 'p2') {
+    state.measureMode.p2 = pixel;
+    state.measureMode.marker2 = L.marker(event.latlng, {
+      icon: createScaleMarkerIcon('#8b5cf6'),
+      draggable: true,
+    }).addTo(state.photoMap);
+    
+    state.measureMode.marker2.on('drag', () => {
+      const latlng = state.measureMode.marker2.getLatLng();
+      state.measureMode.p2 = { x: latlng.lng, y: latlng.lat };
+      updateMeasureModeLine();
+    });
+    
+    updateMeasureModeLine();
+    state.measureMode.step = null;
+    
+    if (dom.measureButton) {
+      dom.measureButton.disabled = false;
+    }
+    
+    showToast('Drag endpoints to refine. Tap Measure again for a new measurement.', { duration: 5000 });
+    return true;
+  }
+  
+  return false;
+}
+
+function updateMeasureButtonState() {
+  if (!dom.measureButton) {
+    return;
+  }
+  const scale = getActiveScale(state);
+  dom.measureButton.disabled = !scale || state.measureMode.active;
+}
+
 function recalculateCalibration() {
   if (state.pairs.length < 2) {
     state.calibration = null;
     refreshPairMarkers();
     updateStatusText();
     stopGeolocationWatch();
+    updateMeasureButtonState();
     return;
   }
 
@@ -650,6 +1080,7 @@ function recalculateCalibration() {
   refreshPairMarkers();
   updateStatusText();
   updateLivePosition();
+  updateMeasureButtonState();
 }
 
 function loadPhotoMap(dataUrl, width, height) {
@@ -986,6 +1417,9 @@ function cacheDom() {
   dom.pairTable = $('pairTable');
   dom.toastContainer = $('toastContainer');
   dom.replacePhotoButton = $('replacePhotoButton');
+  // Scale and measure mode buttons
+  dom.setScaleButton = $('setScaleButton');
+  dom.measureButton = $('measureButton');
 }
 
 function setupEventHandlers() {
@@ -1003,6 +1437,14 @@ function setupEventHandlers() {
   dom.pairTableBody.addEventListener('click', onPairTableClick);
   dom.photoTabButton.addEventListener('click', () => setActiveView('photo'));
   dom.osmTabButton.addEventListener('click', () => setActiveView('osm'));
+  
+  // Scale and measure mode handlers
+  if (dom.setScaleButton) {
+    dom.setScaleButton.addEventListener('click', startScaleMode);
+  }
+  if (dom.measureButton) {
+    dom.measureButton.addEventListener('click', startMeasureMode);
+  }
 }
 
 function init() {
