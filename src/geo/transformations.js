@@ -118,7 +118,7 @@ export function fitSimilarityFixedScale(pairs, fixedScale, weights) {
     return null;
   }
 
-  if (!Number.isFinite(fixedScale) || Math.abs(fixedScale) < TOLERANCE) {
+  if (!Number.isFinite(fixedScale) || fixedScale <= TOLERANCE) {
     return null;
   }
 

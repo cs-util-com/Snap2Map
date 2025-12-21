@@ -249,6 +249,8 @@ describe('transformations', () => {
       expect(fitSimilarityFixedScale(pairs, 0)).toBeNull();
       expect(fitSimilarityFixedScale(pairs, NaN)).toBeNull();
       expect(fitSimilarityFixedScale(pairs, Infinity)).toBeNull();
+      expect(fitSimilarityFixedScale(pairs, -1)).toBeNull();
+      expect(fitSimilarityFixedScale(pairs, -0.5)).toBeNull();
     });
 
     test('returns null for zero total weight', () => {
