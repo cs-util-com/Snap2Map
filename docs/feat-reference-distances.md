@@ -67,12 +67,15 @@ We need to extend the application state to store the manual reference.
 *   **Edit/Delete**: Tapping the reference line allows editing the value or deleting it.
 
 ### 2.2 Measurement Mode
-*   **Entry Point**: "Measure" button (icon: tape measure), enabled **only** if `referenceDistance` is set.
+*   **Entry Point**: "Measure" button (icon: tape measure), enabled if a **scale can be determined** from either:
+    1.  A manual `referenceDistance` (user-defined reference line with known meters).
+    2.  A successful GPS-based calibration (scale derived from the calibration transform).
+*   **Scale Source Priority**: When both sources exist, `referenceDistance.metersPerPixel` takes precedence (manual measurement is considered more precise than GPS-derived scale).
 *   **Interaction Flow**:
     1.  User taps "Measure".
     2.  User taps to set a start point of the temporary measure line. (The user can still zoom and move around on the image while doing so)
     3. User taps to set the end point of the temporary measure line. (The user can still zoom and move around on the image while doing so)
-    4.  **Real-time Feedback**: A label on the line shows the distance in meters, calculated as `pixelDistance * state.referenceDistance.metersPerPixel`.
+    4.  **Real-time Feedback**: A label on the line shows the distance in meters, calculated as `pixelDistance * activeMetersPerPixel` (where `activeMetersPerPixel` is sourced from `referenceDistance` if set, otherwise from the GPS calibration).
     5. Afterwards the user can still long press and drag the start and end points of the measure line around on the image to refine their initial placement of these 2 points
 
 ## 3. Logic & Calibration Integration
