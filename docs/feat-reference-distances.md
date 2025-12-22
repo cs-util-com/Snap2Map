@@ -392,9 +392,33 @@ This separates:
 
 ---
 
-### 🔲 Phase 3: Remaining Work
+### ✅ Phase 3: Advanced Features & Polish (Complete)
 
-#### Not Yet Implemented
-- [ ] Persistence of `referenceDistance` to IndexedDB
-- [ ] Scale disagreement warning (when GPS and manual scales differ by >10%)
-- [ ] Unit selection UI (m/ft/ft-in preference)
+**Date:** 2025-12-22
+
+This phase completes the feature set with persistence, scale validation, and advanced measurement capabilities.
+
+#### Persistence & Settings
+- [x] Implemented `saveSettings()` and `loadSettings()` using `localStorage`
+- [x] Persists `preferredUnit` and `referenceDistance` across sessions
+- [x] Automatically restores reference visualization on app load
+
+#### Scale Validation & Hybrid Calibration
+- [x] Implemented `checkScaleDisagreement()` in `index.js`
+- [x] Added UI warning indicator for scale mismatches > 10%
+- [x] Integrated `referenceScale` into `recalculateCalibration()`
+- [x] GPS calibration now uses fixed-scale similarity model when manual reference exists
+
+#### Measurement Enhancements
+- [x] Added support for multiple pinned measurements
+- [x] Implemented "Pin" button on measurement labels
+- [x] Added "Clear All" button to remove all measurements
+- [x] Measurements are automatically pinned when starting a new one
+
+#### UI/UX Polish
+- [x] Added global unit selector (m, ft, ft-in) to the header
+- [x] Interactive reference line: tap to edit distance
+- [x] Added delete button to reference scale label
+- [x] Reference distance is cleared when importing a new photo
+
+**Test Results:** 153 tests pass, 98.67% overall coverage, all quality checks pass

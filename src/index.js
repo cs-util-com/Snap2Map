@@ -8,6 +8,8 @@ import {
 } from 'snap2map/calibrator';
 import {
   formatDistance,
+  getMetersPerPixelFromCalibration,
+  compareScales,
 } from './scale/scale.js';
 import {
   createScaleModeState,
@@ -100,6 +102,7 @@ const state = {
       line: null,
       label: null,
     },
+    pinned: [], // Array of { p1, p2, meters, source, ui: { marker1, marker2, line, label } }
   },
 };
 
@@ -219,10 +222,37 @@ function formatLatLon(value, positive, negative) {
   return `${value.toFixed(6)}° ${direction}`;
 }
 
+function checkScaleDisagreement() {
+  if (!dom.scaleWarning) {
+    return;
+  }
+
+  if (!state.referenceDistance || !state.calibration || state.calibration.status !== 'ok') {
+    dom.scaleWarning.classList.add('hidden');
+    return;
+  }
+
+  const gpsScale = getMetersPerPixelFromCalibration(state.calibration);
+  const manualScale = state.referenceDistance.metersPerPixel;
+
+  const comparison = compareScales(manualScale, gpsScale);
+
+  if (comparison && comparison.differs) {
+    const percent = (comparison.percentDifference * 100).toFixed(0);
+    dom.scaleWarning.textContent = `⚠️ Scale mismatch: Manual reference (${manualScale.toFixed(4)} m/px) and GPS calibration (${gpsScale.toFixed(4)} m/px) differ by ${percent}%`;
+    dom.scaleWarning.classList.remove('hidden');
+  } else {
+    dom.scaleWarning.classList.add('hidden');
+  }
+}
+
 function updateStatusText() {
   if (!dom.calibrationStatus) {
     return;
   }
+  
+  checkScaleDisagreement();
+
   if (!state.calibration || state.calibration.status !== 'ok') {
     dom.calibrationStatus.textContent = 'Add at least two reference pairs to calibrate the photo.';
     dom.calibrationBadge.textContent = 'No calibration';
@@ -775,17 +805,44 @@ function drawReferenceVisualization() {
     weight: 3,
     dashArray: '8, 8',
     opacity: 0.9,
+    interactive: true,
   }).addTo(state.photoMap);
+
+  state.referenceMarkers.line.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    // Tapping the line triggers edit mode
+    state.scaleMode.logic.p1 = state.referenceDistance.p1;
+    state.scaleMode.logic.p2 = state.referenceDistance.p2;
+    promptForReferenceDistance();
+  });
   
   const midLat = (p1.y + p2.y) / 2;
   const midLng = (p1.x + p2.x) / 2;
   state.referenceMarkers.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'reference-label',
-      html: `<div class="distance-label" style="background:${COLORS.REFERENCE};">📏 ${formatDistance(meters, state.preferredUnit)}</div>`,
+      html: `<div class="distance-label" style="background:${COLORS.REFERENCE};">📏 ${formatDistance(meters, state.preferredUnit)} <button class="delete-ref-btn ml-1 px-1 bg-white/20 hover:bg-white/40 rounded" title="Delete scale">✕</button></div>`,
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
+
+  state.referenceMarkers.label.on('add', () => {
+    const element = state.referenceMarkers.label.getElement();
+    if (element) {
+      const btn = element.querySelector('.delete-ref-btn');
+      if (btn) {
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          if (confirm('Delete reference scale?')) {
+            state.referenceDistance = null;
+            clearReferenceVisualization();
+            recalculateCalibration();
+            saveSettings();
+          }
+        });
+      }
+    }
+  });
 }
 
 function updateScaleModeLine() {
@@ -851,6 +908,9 @@ function handleDistanceModalConfirm() {
   
   // Update preferred unit for future use
   state.preferredUnit = unit;
+  if (dom.globalUnitSelect) {
+    dom.globalUnitSelect.value = unit;
+  }
   
   const validation = validateDistanceInput(inputValue, unit);
   
@@ -877,7 +937,8 @@ function handleDistanceModalConfirm() {
   state.scaleMode.logic = cancelScaleModeState();
   
   drawReferenceVisualization();
-  updateMeasureButtonState();
+  recalculateCalibration();
+  saveSettings();
   showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
 }
 
@@ -984,6 +1045,7 @@ function updateMeasureLabel() {
   const midLat = (p1.y + p2.y) / 2;
   const midLng = (p1.x + p2.x) / 2;
   const sourceIcon = result.source === 'manual' ? '📏' : '📡';
+  const pinButtonHtml = '<button class="pin-btn ml-2 px-1 bg-white/20 hover:bg-white/40 rounded" title="Pin measurement">📌</button>';
   
   if (state.measureMode.ui.label) {
     state.measureMode.ui.label.remove();
@@ -992,10 +1054,24 @@ function updateMeasureLabel() {
   state.measureMode.ui.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'measure-label',
-      html: `<div class="distance-label distance-label--measure" style="background:${COLORS.MEASURE};">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}</div>`,
+      html: `<div class="distance-label distance-label--measure" style="background:${COLORS.MEASURE};">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}${pinButtonHtml}</div>`,
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
+
+  // Attach click handler to pin button
+  state.measureMode.ui.label.on('add', () => {
+    const element = state.measureMode.ui.label.getElement();
+    if (element) {
+      const btn = element.querySelector('.pin-btn');
+      if (btn) {
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          pinCurrentMeasurement();
+        });
+      }
+    }
+  });
 }
 
 function updateMeasureModeLine() {
@@ -1032,6 +1108,11 @@ function startMeasureMode() {
   }
   if (state.scaleMode.logic.active) {
     cancelScaleMode();
+  }
+  
+  // If there's a completed measurement, pin it automatically
+  if (state.measureMode.logic.active && state.measureMode.logic.step === null) {
+    pinCurrentMeasurement();
   }
   
   clearMeasureModeMarkers();
@@ -1111,6 +1192,79 @@ function updateMeasureButtonState() {
     return;
   }
   dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode.logic);
+  
+  if (dom.clearMeasurementsButton) {
+    dom.clearMeasurementsButton.classList.toggle('hidden', state.measureMode.pinned.length === 0);
+  }
+}
+
+function pinCurrentMeasurement() {
+  const { p1, p2 } = state.measureMode.logic;
+  if (!p1 || !p2 || state.measureMode.logic.step !== null) {
+    return;
+  }
+  
+  const result = computeMeasurement(state.measureMode.logic, state);
+  if (!result.success) {
+    return;
+  }
+  
+  // Move current UI elements to pinned list
+  const pinnedItem = {
+    p1,
+    p2,
+    meters: result.meters,
+    source: result.source,
+    ui: {
+      marker1: state.measureMode.ui.marker1,
+      marker2: state.measureMode.ui.marker2,
+      line: state.measureMode.ui.line,
+      label: state.measureMode.ui.label,
+    },
+  };
+  
+  // Make markers non-draggable once pinned
+  if (pinnedItem.ui.marker1) pinnedItem.ui.marker1.dragging.disable();
+  if (pinnedItem.ui.marker2) pinnedItem.ui.marker2.dragging.disable();
+  
+  // Remove the pin button from the label if it exists
+  if (pinnedItem.ui.label) {
+    const labelHtml = pinnedItem.ui.label.options.icon.options.html;
+    const newHtml = labelHtml.replace(/<button.*<\/button>/, '');
+    pinnedItem.ui.label.setIcon(L.divIcon({
+      className: 'measure-label',
+      html: newHtml,
+      iconAnchor: [0, 0],
+    }));
+  }
+  
+  state.measureMode.pinned.push(pinnedItem);
+  
+  // Reset current UI references (but don't remove from map)
+  state.measureMode.ui = {
+    marker1: null,
+    marker2: null,
+    line: null,
+    label: null,
+  };
+  
+  updateMeasureButtonState();
+}
+
+function clearAllMeasurements() {
+  // Clear current
+  clearMeasureModeMarkers();
+  
+  // Clear pinned
+  state.measureMode.pinned.forEach(item => {
+    if (item.ui.marker1) item.ui.marker1.remove();
+    if (item.ui.marker2) item.ui.marker2.remove();
+    if (item.ui.line) item.ui.line.remove();
+    if (item.ui.label) item.ui.label.remove();
+  });
+  state.measureMode.pinned = [];
+  
+  updateMeasureButtonState();
 }
 
 function recalculateCalibration() {
@@ -1123,7 +1277,12 @@ function recalculateCalibration() {
     return;
   }
 
-  const result = calibrateMap(state.pairs);
+  const options = {};
+  if (state.referenceDistance && state.referenceDistance.metersPerPixel) {
+    options.referenceScale = state.referenceDistance.metersPerPixel;
+  }
+
+  const result = calibrateMap(state.pairs, options);
   state.calibration = result.status === 'ok' ? result : null;
 
   if (!state.calibration) {
@@ -1175,6 +1334,9 @@ function loadPhotoMap(dataUrl, width, height) {
   state.imageSize = { width, height };
   state.pairs = [];
   state.calibration = null;
+  state.referenceDistance = null;
+  clearReferenceVisualization();
+  clearAllMeasurements();
   state.lastPosition = null;
   state.userMarker = null;
   if (state.accuracyCircle) {
@@ -1187,6 +1349,7 @@ function loadPhotoMap(dataUrl, width, height) {
   renderPairList();
   refreshPairMarkers();
   updateStatusText();
+  saveSettings();
   updateGpsStatus('Photo loaded. Guided pairing active — follow the prompts.', false);
   startGuidedPairing();
 
@@ -1468,6 +1631,7 @@ function cacheDom() {
   dom.residualSummary = $('residualSummary');
   dom.accuracyDetails = $('accuracyDetails');
   dom.gpsStatus = $('gpsStatus');
+  dom.scaleWarning = $('scaleWarning');
   dom.photoView = $('photoView');
   dom.osmView = $('osmView');
   dom.photoTabButton = $('photoTabButton');
@@ -1475,9 +1639,12 @@ function cacheDom() {
   dom.pairTable = $('pairTable');
   dom.toastContainer = $('toastContainer');
   dom.replacePhotoButton = $('replacePhotoButton');
+  // Global unit selector
+  dom.globalUnitSelect = $('globalUnitSelect');
   // Scale and measure mode buttons
   dom.setScaleButton = $('setScaleButton');
   dom.measureButton = $('measureButton');
+  dom.clearMeasurementsButton = $('clearMeasurementsButton');
   // Distance input modal
   dom.distanceModal = $('distanceModal');
   dom.distanceInput = $('distanceInput');
@@ -1503,12 +1670,26 @@ function setupEventHandlers() {
   dom.photoTabButton.addEventListener('click', () => setActiveView('photo'));
   dom.osmTabButton.addEventListener('click', () => setActiveView('osm'));
   
+  // Global unit selector
+  if (dom.globalUnitSelect) {
+    dom.globalUnitSelect.addEventListener('change', (e) => {
+      state.preferredUnit = e.target.value;
+      // Refresh visualizations that use the unit
+      drawReferenceVisualization();
+      updateMeasureLabel();
+      saveSettings();
+    });
+  }
+  
   // Scale and measure mode handlers
   if (dom.setScaleButton) {
     dom.setScaleButton.addEventListener('click', startScaleMode);
   }
   if (dom.measureButton) {
     dom.measureButton.addEventListener('click', startMeasureMode);
+  }
+  if (dom.clearMeasurementsButton) {
+    dom.clearMeasurementsButton.addEventListener('click', clearAllMeasurements);
   }
   
   // Distance modal handlers
@@ -1543,8 +1724,41 @@ function setupEventHandlers() {
   }
 }
 
+function saveSettings() {
+  try {
+    localStorage.setItem('snap2map_preferredUnit', state.preferredUnit);
+    if (state.referenceDistance) {
+      localStorage.setItem('snap2map_referenceDistance', JSON.stringify(state.referenceDistance));
+    } else {
+      localStorage.removeItem('snap2map_referenceDistance');
+    }
+  } catch (e) {
+    console.warn('Failed to save settings', e);
+  }
+}
+
+function loadSettings() {
+  try {
+    const unit = localStorage.getItem('snap2map_preferredUnit');
+    if (unit) {
+      state.preferredUnit = unit;
+      if (dom.globalUnitSelect) {
+        dom.globalUnitSelect.value = unit;
+      }
+    }
+    
+    const refDist = localStorage.getItem('snap2map_referenceDistance');
+    if (refDist) {
+      state.referenceDistance = JSON.parse(refDist);
+    }
+  } catch (e) {
+    console.warn('Failed to load settings', e);
+  }
+}
+
 function init() {
   cacheDom();
+  loadSettings();
   setPhotoImportState(false);
   setupEventHandlers();
   setupMaps();
