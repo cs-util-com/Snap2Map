@@ -30,6 +30,15 @@ import {
 const GUIDED_PAIR_TARGET = 2;
 const MAX_PHOTO_DIMENSION = 2048*2; // pixels
 
+const COLORS = {
+  PRIMARY: '#2563eb',    // blue-600
+  INLIER: '#16a34a',     // green-600
+  OUTLIER: '#dc2626',    // red-600
+  SCALE: '#3b82f6',      // blue-500
+  REFERENCE: '#10b981',  // emerald-500
+  MEASURE: '#8b5cf6',    // violet-500
+};
+
 const state = {
   imageDataUrl: null,
   imageSize: null,
@@ -265,7 +274,7 @@ function refreshPairMarkers() {
   state.pairs.forEach((pair, index) => {
     const residual = state.calibration && state.calibration.residuals ? state.calibration.residuals[index] : null;
     const inlier = state.calibration && state.calibration.inliers ? state.calibration.inliers[index] : false;
-    const color = !state.calibration ? '#2563eb' : inlier ? '#16a34a' : '#dc2626';
+    const color = !state.calibration ? COLORS.PRIMARY : inlier ? COLORS.INLIER : COLORS.OUTLIER;
     const label = residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—';
 
     const photoMarker = L.circleMarker([pair.pixel.y, pair.pixel.x], {
@@ -333,8 +342,8 @@ function ensureUserMarker(latlng) {
   if (!state.userMarker) {
     state.userMarker = L.circleMarker(latlng, {
       radius: 6,
-      color: '#2563eb',
-      fillColor: '#2563eb',
+      color: COLORS.PRIMARY,
+      fillColor: COLORS.PRIMARY,
       fillOpacity: 0.9,
     }).addTo(state.photoMap);
   } else {
@@ -698,7 +707,7 @@ function useCurrentPositionForPair() {
 // Scale Mode: Set reference distance for manual scale definition
 // ─────────────────────────────────────────────────────────────────────────────
 
-function createScaleMarkerIcon(color = '#3b82f6') {
+function createScaleMarkerIcon(color = COLORS.SCALE) {
   return L.divIcon({
     className: 'scale-marker',
     html: `<div class="scale-marker-dot" style="background:${color};"></div>`,
@@ -752,17 +761,17 @@ function drawReferenceVisualization() {
   const latlng2 = L.latLng(p2.y, p2.x);
   
   state.referenceMarkers.marker1 = L.marker(latlng1, {
-    icon: createScaleMarkerIcon('#10b981'),
+    icon: createScaleMarkerIcon(COLORS.REFERENCE),
     draggable: false,
   }).addTo(state.photoMap);
   
   state.referenceMarkers.marker2 = L.marker(latlng2, {
-    icon: createScaleMarkerIcon('#10b981'),
+    icon: createScaleMarkerIcon(COLORS.REFERENCE),
     draggable: false,
   }).addTo(state.photoMap);
   
   state.referenceMarkers.line = L.polyline([latlng1, latlng2], {
-    color: '#10b981',
+    color: COLORS.REFERENCE,
     weight: 3,
     dashArray: '8, 8',
     opacity: 0.9,
@@ -773,7 +782,7 @@ function drawReferenceVisualization() {
   state.referenceMarkers.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'reference-label',
-      html: `<div class="distance-label" style="background:#10b981;">📏 ${formatDistance(meters, state.preferredUnit)}</div>`,
+      html: `<div class="distance-label" style="background:${COLORS.REFERENCE};">📏 ${formatDistance(meters, state.preferredUnit)}</div>`,
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
@@ -791,7 +800,7 @@ function updateScaleModeLine() {
     state.scaleMode.ui.line.setLatLngs([latlng1, latlng2]);
   } else {
     state.scaleMode.ui.line = L.polyline([latlng1, latlng2], {
-      color: '#3b82f6',
+      color: COLORS.SCALE,
       weight: 3,
       dashArray: '6, 6',
       opacity: 0.9,
@@ -918,7 +927,7 @@ function handleScaleModeClick(event) {
   // Handle UI side effects based on action
   if (action === 'show-p2-toast') {
     state.scaleMode.ui.marker1 = L.marker(event.latlng, {
-      icon: createScaleMarkerIcon('#3b82f6'),
+      icon: createScaleMarkerIcon(COLORS.SCALE),
       draggable: false,
     }).addTo(state.photoMap);
     showToast('Now tap the end point.');
@@ -927,7 +936,7 @@ function handleScaleModeClick(event) {
   
   if (action === 'prompt-distance') {
     state.scaleMode.ui.marker2 = L.marker(event.latlng, {
-      icon: createScaleMarkerIcon('#3b82f6'),
+      icon: createScaleMarkerIcon(COLORS.SCALE),
       draggable: false,
     }).addTo(state.photoMap);
     updateScaleModeLine();
@@ -983,7 +992,7 @@ function updateMeasureLabel() {
   state.measureMode.ui.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'measure-label',
-      html: `<div class="distance-label distance-label--measure" style="background:#8b5cf6;">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}</div>`,
+      html: `<div class="distance-label distance-label--measure" style="background:${COLORS.MEASURE};">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}</div>`,
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
@@ -1002,7 +1011,7 @@ function updateMeasureModeLine() {
     state.measureMode.ui.line.setLatLngs([latlng1, latlng2]);
   } else {
     state.measureMode.ui.line = L.polyline([latlng1, latlng2], {
-      color: '#8b5cf6',
+      color: COLORS.MEASURE,
       weight: 3,
       opacity: 0.9,
     }).addTo(state.photoMap);
@@ -1066,7 +1075,7 @@ function handleMeasureModeClick(event) {
   // Handle UI side effects based on action
   if (action === 'show-p2-toast') {
     state.measureMode.ui.marker1 = L.marker(event.latlng, {
-      icon: createScaleMarkerIcon('#8b5cf6'),
+      icon: createScaleMarkerIcon(COLORS.MEASURE),
       draggable: true,
     }).addTo(state.photoMap);
     
@@ -1078,7 +1087,7 @@ function handleMeasureModeClick(event) {
   
   if (action === 'measurement-complete') {
     state.measureMode.ui.marker2 = L.marker(event.latlng, {
-      icon: createScaleMarkerIcon('#8b5cf6'),
+      icon: createScaleMarkerIcon(COLORS.MEASURE),
       draggable: true,
     }).addTo(state.photoMap);
     
