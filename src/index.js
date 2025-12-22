@@ -10,12 +10,14 @@ import {
   formatDistance,
 } from './scale/scale.js';
 import {
+  createScaleModeState,
   startScaleModeState,
   handleScaleModePoint,
   validateDistanceInput,
   computeReferenceDistanceFromInput,
   cancelScaleModeState,
   canStartMeasureMode,
+  createMeasureModeState,
   startMeasureModeState,
   handleMeasureModePoint,
   updateMeasureModePoint,
@@ -66,13 +68,12 @@ const state = {
   preferredUnit: 'm',
   // Scale mode: setting the reference distance line
   scaleMode: {
-    active: false,
-    step: null, // 'p1' | 'p2' | 'input'
-    p1: null,
-    p2: null,
-    marker1: null,
-    marker2: null,
-    line: null,
+    logic: createScaleModeState(),
+    ui: {
+      marker1: null,
+      marker2: null,
+      line: null,
+    },
   },
   // Reference distance visualization (persists after scaleMode is done)
   referenceMarkers: {
@@ -83,14 +84,13 @@ const state = {
   },
   // Measure mode: measuring arbitrary distances
   measureMode: {
-    active: false,
-    step: null, // 'p1' | 'p2'
-    p1: null,
-    p2: null,
-    marker1: null,
-    marker2: null,
-    line: null,
-    label: null,
+    logic: createMeasureModeState(),
+    ui: {
+      marker1: null,
+      marker2: null,
+      line: null,
+      label: null,
+    },
   },
 };
 
@@ -708,17 +708,17 @@ function createScaleMarkerIcon(color = '#3b82f6') {
 }
 
 function clearScaleModeMarkers() {
-  if (state.scaleMode.marker1) {
-    state.scaleMode.marker1.remove();
-    state.scaleMode.marker1 = null;
+  if (state.scaleMode.ui.marker1) {
+    state.scaleMode.ui.marker1.remove();
+    state.scaleMode.ui.marker1 = null;
   }
-  if (state.scaleMode.marker2) {
-    state.scaleMode.marker2.remove();
-    state.scaleMode.marker2 = null;
+  if (state.scaleMode.ui.marker2) {
+    state.scaleMode.ui.marker2.remove();
+    state.scaleMode.ui.marker2 = null;
   }
-  if (state.scaleMode.line) {
-    state.scaleMode.line.remove();
-    state.scaleMode.line = null;
+  if (state.scaleMode.ui.line) {
+    state.scaleMode.ui.line.remove();
+    state.scaleMode.ui.line = null;
   }
 }
 
@@ -780,17 +780,17 @@ function drawReferenceVisualization() {
 }
 
 function updateScaleModeLine() {
-  const { p1, p2 } = state.scaleMode;
+  const { p1, p2 } = state.scaleMode.logic;
   if (!p1 || !p2) {
     return;
   }
   const latlng1 = L.latLng(p1.y, p1.x);
   const latlng2 = L.latLng(p2.y, p2.x);
   
-  if (state.scaleMode.line) {
-    state.scaleMode.line.setLatLngs([latlng1, latlng2]);
+  if (state.scaleMode.ui.line) {
+    state.scaleMode.ui.line.setLatLngs([latlng1, latlng2]);
   } else {
-    state.scaleMode.line = L.polyline([latlng1, latlng2], {
+    state.scaleMode.ui.line = L.polyline([latlng1, latlng2], {
       color: '#3b82f6',
       weight: 3,
       dashArray: '6, 6',
@@ -855,7 +855,7 @@ function handleDistanceModalConfirm() {
   
   hideDistanceModal();
   
-  const result = computeReferenceDistanceFromInput(state.scaleMode, meters);
+  const result = computeReferenceDistanceFromInput(state.scaleMode.logic, meters);
   
   if (!result.success) {
     showToast('Could not compute scale. Points may be too close.', { tone: 'warning' });
@@ -865,7 +865,7 @@ function handleDistanceModalConfirm() {
   
   state.referenceDistance = result.referenceDistance;
   clearScaleModeMarkers();
-  Object.assign(state.scaleMode, cancelScaleModeState());
+  state.scaleMode.logic = cancelScaleModeState();
   
   drawReferenceVisualization();
   updateMeasureButtonState();
@@ -880,16 +880,15 @@ function startScaleMode() {
   if (state.activePair) {
     cancelPairMode();
   }
-  if (state.measureMode.active) {
+  if (state.measureMode.logic.active) {
     cancelMeasureMode();
   }
   
-  const newState = startScaleModeState(state.scaleMode);
-  Object.assign(state.scaleMode, newState);
+  state.scaleMode.logic = startScaleModeState(state.scaleMode.logic);
   clearScaleModeMarkers();
   
   if (dom.setScaleButton) {
-    dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode);
+    dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode.logic);
   }
   
   setActiveView('photo');
@@ -898,27 +897,27 @@ function startScaleMode() {
 
 function cancelScaleMode() {
   clearScaleModeMarkers();
-  Object.assign(state.scaleMode, cancelScaleModeState());
+  state.scaleMode.logic = cancelScaleModeState();
   
   if (dom.setScaleButton) {
-    dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode);
+    dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode.logic);
   }
 }
 
 function handleScaleModeClick(event) {
   const pixel = { x: event.latlng.lng, y: event.latlng.lat };
-  const { state: newState, action } = handleScaleModePoint(state.scaleMode, pixel);
+  const { state: newState, action } = handleScaleModePoint(state.scaleMode.logic, pixel);
   
   if (!action) {
     return false;
   }
   
   // Update logical state
-  Object.assign(state.scaleMode, newState);
+  state.scaleMode.logic = newState;
   
   // Handle UI side effects based on action
   if (action === 'show-p2-toast') {
-    state.scaleMode.marker1 = L.marker(event.latlng, {
+    state.scaleMode.ui.marker1 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#3b82f6'),
       draggable: false,
     }).addTo(state.photoMap);
@@ -927,7 +926,7 @@ function handleScaleModeClick(event) {
   }
   
   if (action === 'prompt-distance') {
-    state.scaleMode.marker2 = L.marker(event.latlng, {
+    state.scaleMode.ui.marker2 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#3b82f6'),
       draggable: false,
     }).addTo(state.photoMap);
@@ -944,31 +943,31 @@ function handleScaleModeClick(event) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function clearMeasureModeMarkers() {
-  if (state.measureMode.marker1) {
-    state.measureMode.marker1.remove();
-    state.measureMode.marker1 = null;
+  if (state.measureMode.ui.marker1) {
+    state.measureMode.ui.marker1.remove();
+    state.measureMode.ui.marker1 = null;
   }
-  if (state.measureMode.marker2) {
-    state.measureMode.marker2.remove();
-    state.measureMode.marker2 = null;
+  if (state.measureMode.ui.marker2) {
+    state.measureMode.ui.marker2.remove();
+    state.measureMode.ui.marker2 = null;
   }
-  if (state.measureMode.line) {
-    state.measureMode.line.remove();
-    state.measureMode.line = null;
+  if (state.measureMode.ui.line) {
+    state.measureMode.ui.line.remove();
+    state.measureMode.ui.line = null;
   }
-  if (state.measureMode.label) {
-    state.measureMode.label.remove();
-    state.measureMode.label = null;
+  if (state.measureMode.ui.label) {
+    state.measureMode.ui.label.remove();
+    state.measureMode.ui.label = null;
   }
 }
 
 function updateMeasureLabel() {
-  const { p1, p2 } = state.measureMode;
+  const { p1, p2 } = state.measureMode.logic;
   if (!p1 || !p2) {
     return;
   }
   
-  const result = computeMeasurement(state.measureMode, state);
+  const result = computeMeasurement(state.measureMode.logic, state);
   if (!result.success) {
     return;
   }
@@ -977,11 +976,11 @@ function updateMeasureLabel() {
   const midLng = (p1.x + p2.x) / 2;
   const sourceIcon = result.source === 'manual' ? '📏' : '📡';
   
-  if (state.measureMode.label) {
-    state.measureMode.label.remove();
+  if (state.measureMode.ui.label) {
+    state.measureMode.ui.label.remove();
   }
   
-  state.measureMode.label = L.marker(L.latLng(midLat, midLng), {
+  state.measureMode.ui.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'measure-label',
       html: `<div class="distance-label distance-label--measure" style="background:#8b5cf6;">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}</div>`,
@@ -991,7 +990,7 @@ function updateMeasureLabel() {
 }
 
 function updateMeasureModeLine() {
-  const { p1, p2 } = state.measureMode;
+  const { p1, p2 } = state.measureMode.logic;
   if (!p1 || !p2) {
     return;
   }
@@ -999,10 +998,10 @@ function updateMeasureModeLine() {
   const latlng1 = L.latLng(p1.y, p1.x);
   const latlng2 = L.latLng(p2.y, p2.x);
   
-  if (state.measureMode.line) {
-    state.measureMode.line.setLatLngs([latlng1, latlng2]);
+  if (state.measureMode.ui.line) {
+    state.measureMode.ui.line.setLatLngs([latlng1, latlng2]);
   } else {
-    state.measureMode.line = L.polyline([latlng1, latlng2], {
+    state.measureMode.ui.line = L.polyline([latlng1, latlng2], {
       color: '#8b5cf6',
       weight: 3,
       opacity: 0.9,
@@ -1022,16 +1021,15 @@ function startMeasureMode() {
   if (state.activePair) {
     cancelPairMode();
   }
-  if (state.scaleMode.active) {
+  if (state.scaleMode.logic.active) {
     cancelScaleMode();
   }
   
   clearMeasureModeMarkers();
-  const newState = startMeasureModeState(state.measureMode);
-  Object.assign(state.measureMode, newState);
+  state.measureMode.logic = startMeasureModeState(state.measureMode.logic);
   
   if (dom.measureButton) {
-    dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode);
+    dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode.logic);
   }
   
   setActiveView('photo');
@@ -1041,56 +1039,55 @@ function startMeasureMode() {
 
 function cancelMeasureMode() {
   clearMeasureModeMarkers();
-  Object.assign(state.measureMode, cancelMeasureModeState());
+  state.measureMode.logic = cancelMeasureModeState();
   
   updateMeasureButtonState();
 }
 
 function handleMeasureModeClick(event) {
   const pixel = { x: event.latlng.lng, y: event.latlng.lat };
-  const { state: newState, action } = handleMeasureModePoint(state.measureMode, pixel);
+  const { state: newState, action } = handleMeasureModePoint(state.measureMode.logic, pixel);
   
   if (!action) {
     return false;
   }
   
   // Update logical state
-  Object.assign(state.measureMode, newState);
+  state.measureMode.logic = newState;
 
   const createDragHandler = (marker, pointId) => {
     marker.on('drag', () => {
       const latlng = marker.getLatLng();
-      const updatedState = updateMeasureModePoint(state.measureMode, pointId, { x: latlng.lng, y: latlng.lat });
-      Object.assign(state.measureMode, updatedState);
+      state.measureMode.logic = updateMeasureModePoint(state.measureMode.logic, pointId, { x: latlng.lng, y: latlng.lat });
       updateMeasureModeLine();
     });
   };
   
   // Handle UI side effects based on action
   if (action === 'show-p2-toast') {
-    state.measureMode.marker1 = L.marker(event.latlng, {
+    state.measureMode.ui.marker1 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#8b5cf6'),
       draggable: true,
     }).addTo(state.photoMap);
     
-    createDragHandler(state.measureMode.marker1, 'p1');
+    createDragHandler(state.measureMode.ui.marker1, 'p1');
     
     showToast('Tap the end point to measure.');
     return true;
   }
   
   if (action === 'measurement-complete') {
-    state.measureMode.marker2 = L.marker(event.latlng, {
+    state.measureMode.ui.marker2 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon('#8b5cf6'),
       draggable: true,
     }).addTo(state.photoMap);
     
-    createDragHandler(state.measureMode.marker2, 'p2');
+    createDragHandler(state.measureMode.ui.marker2, 'p2');
     
     updateMeasureModeLine();
     
     if (dom.measureButton) {
-      dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode);
+      dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode.logic);
     }
     
     showToast('Drag endpoints to refine. Tap Measure again for a new measurement.', { duration: 5000 });
@@ -1104,7 +1101,7 @@ function updateMeasureButtonState() {
   if (!dom.measureButton) {
     return;
   }
-  dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode);
+  dom.measureButton.disabled = !shouldEnableMeasureButton(state, state.measureMode.logic);
 }
 
 function recalculateCalibration() {
