@@ -332,7 +332,7 @@ This phase extracts testable state machine logic from the UI layer into pure fun
 - [x] `createScaleModeState()` - Creates initial state
 - [x] `startScaleModeState(currentState)` - Activates scale mode
 - [x] `handleScaleModePoint(currentState, point)` - Processes point clicks
-- [x] `validateDistanceInput(input)` - Validates user's distance input
+- [x] `validateDistanceInput(input, unit)` - Validates user's distance input
 - [x] `computeReferenceDistanceFromInput(scaleModeState, meters)` - Computes reference distance
 - [x] `cancelScaleModeState()` - Resets state
 

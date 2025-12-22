@@ -132,6 +132,12 @@ describe('scale-mode state machine', () => {
     test('handles whitespace around number', () => {
       expect(validateDistanceInput('  5.25  ')).toEqual({ valid: true, meters: 5.25 });
     });
+
+    test('handles feet conversion', () => {
+      const result = validateDistanceInput('10', 'ft');
+      expect(result.valid).toBe(true);
+      expect(result.meters).toBeCloseTo(10 / 3.28084);
+    });
   });
 
   describe('computeReferenceDistanceFromInput', () => {

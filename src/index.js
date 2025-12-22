@@ -8,11 +8,11 @@ import {
 } from 'snap2map/calibrator';
 import {
   formatDistance,
-  convertToMeters,
 } from './scale/scale.js';
 import {
   startScaleModeState,
   handleScaleModePoint,
+  validateDistanceInput,
   computeReferenceDistanceFromInput,
   cancelScaleModeState,
   canStartMeasureMode,
@@ -837,21 +837,21 @@ function handleDistanceModalCancel() {
 }
 
 function handleDistanceModalConfirm() {
-  const inputValue = dom.distanceInput.value.trim();
+  const inputValue = dom.distanceInput.value;
   const unit = dom.distanceUnit.value;
   
   // Update preferred unit for future use
   state.preferredUnit = unit;
   
-  // Parse and convert value, relying on convertToMeters for validation
-  const numericValue = parseFloat(inputValue);
-  const meters = convertToMeters(numericValue, unit);
+  const validation = validateDistanceInput(inputValue, unit);
   
-  if (meters === null) {
+  if (!validation.valid) {
     dom.distanceError.classList.remove('hidden');
     dom.distanceInput.focus();
     return;
   }
+  
+  const { meters } = validation;
   
   hideDistanceModal();
   

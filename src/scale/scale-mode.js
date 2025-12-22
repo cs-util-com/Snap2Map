@@ -85,14 +85,16 @@ export function handleScaleModePoint(currentState, point) {
 /**
  * Validates and processes the user's distance input.
  * @param {string | null} input - Raw user input from prompt
+ * @param {string} [unit='m'] - Unit of the input value ('m', 'ft')
  * @returns {{ valid: boolean, meters?: number, error?: string }}
  */
-export function validateDistanceInput(input) {
+export function validateDistanceInput(input, unit = 'm') {
   if (input === null) {
     return { valid: false, error: 'cancelled' };
   }
 
-  const meters = convertToMeters(parseFloat(input), 'm');
+  const value = parseFloat(input);
+  const meters = convertToMeters(value, unit);
   if (meters === null) {
     return { valid: false, error: 'invalid-number' };
   }
