@@ -1677,6 +1677,20 @@ function setupEventHandlers() {
       // Refresh visualizations that use the unit
       drawReferenceVisualization();
       updateMeasureLabel();
+
+      // Also update all pinned measurement labels
+      state.measureMode.pinned.forEach((item) => {
+        if (item.ui.label) {
+          const sourceIcon = item.source === 'manual' ? '📏' : '📡';
+          const newHtml = `<div class="distance-label distance-label--measure" style="background:${COLORS.MEASURE};">${sourceIcon} ${formatDistance(item.meters, state.preferredUnit)}</div>`;
+          item.ui.label.setIcon(L.divIcon({
+            className: 'measure-label',
+            html: newHtml,
+            iconAnchor: [0, 0],
+          }));
+        }
+      });
+
       saveSettings();
     });
   }
@@ -1783,4 +1797,5 @@ export const __testables = {
   handleDistanceModalConfirm,
   handleDistanceModalCancel,
   cacheDom,
+  setupEventHandlers,
 };

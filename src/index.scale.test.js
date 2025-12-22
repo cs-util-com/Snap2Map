@@ -8,6 +8,7 @@ describe('Scale and Measure UI integration', () => {
   let handleDistanceModalConfirm;
   let handleDistanceModalCancel;
   let cacheDom;
+  let setupEventHandlers;
 
   function setupLeafletMock() {
     const mapMock = {
@@ -43,7 +44,7 @@ describe('Scale and Measure UI integration', () => {
         on: jest.fn(),
         remove: jest.fn(),
       })),
-      divIcon: jest.fn(),
+      divIcon: jest.fn((options) => ({ options })),
       imageOverlay: jest.fn(() => ({
         addTo: jest.fn(),
         remove: jest.fn(),
@@ -138,7 +139,8 @@ describe('Scale and Measure UI integration', () => {
       recalculateCalibration,
       handleDistanceModalConfirm,
       handleDistanceModalCancel,
-      cacheDom
+      cacheDom,
+      setupEventHandlers
     } = indexModule.__testables);
     
     // Initialize DOM references and maps
@@ -249,6 +251,43 @@ describe('Scale and Measure UI integration', () => {
       
       expect(state.scaleMode.logic.active).toBe(false);
       expect(state.referenceDistance).toEqual(existingReference);
+    });
+  });
+
+  describe('Unit Update Integration', () => {
+    it('updates pinned measurement labels when global unit changes', () => {
+      setupEventHandlers();
+      
+      // Create a mock pinned measurement
+      const mockLabel = {
+        setIcon: jest.fn(),
+      };
+      
+      const pinnedItem = {
+        meters: 10,
+        source: 'manual',
+        ui: {
+          label: mockLabel
+        }
+      };
+      
+      state.measureMode.pinned.push(pinnedItem);
+      
+      // Trigger unit change
+      const select = document.getElementById('globalUnitSelect');
+      // Add options if they don't exist (setupDomMock might not have them)
+      select.innerHTML = '<option value="m">Meters</option><option value="ft">Feet</option>';
+      select.value = 'ft';
+      select.dispatchEvent(new Event('change'));
+      
+      expect(state.preferredUnit).toBe('ft');
+      expect(mockLabel.setIcon).toHaveBeenCalled();
+      
+      // Check if setIcon was called with the correct unit (feet)
+      // 10 meters is approx 32.81 feet
+      const callArgs = mockLabel.setIcon.mock.calls[0][0];
+      expect(callArgs.options.html).toContain('32.81');
+      expect(callArgs.options.html).toContain('ft');
     });
   });
 });
