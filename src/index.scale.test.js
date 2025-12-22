@@ -1,13 +1,13 @@
 
 describe('Scale and Measure UI integration', () => {
   let state;
-  let dom;
   let checkScaleDisagreement;
   let saveSettings;
   let loadSettings;
   let recalculateCalibration;
   let handleDistanceModalConfirm;
   let handleDistanceModalCancel;
+  let cacheDom;
 
   function loadModule() {
     jest.resetModules();
@@ -22,16 +22,18 @@ describe('Scale and Measure UI integration', () => {
       getZoom: jest.fn(() => 11),
     };
 
+    const locateControlMock = {
+      addTo: jest.fn(() => locateControlMock),
+      start: jest.fn(),
+    };
+
     global.L = {
       map: jest.fn(() => mapMock),
       tileLayer: jest.fn(() => ({
         addTo: jest.fn(),
       })),
       control: {
-        locate: jest.fn(() => ({
-          addTo: jest.fn(),
-          start: jest.fn(),
-        })),
+        locate: jest.fn(() => locateControlMock),
       },
       latLng: jest.fn((lat, lon) => ({ lat, lon })),
       marker: jest.fn(() => ({
@@ -82,6 +84,13 @@ describe('Scale and Measure UI integration', () => {
       <div id="osmView"></div>
       <button id="photoTabButton"></button>
       <button id="osmTabButton"></button>
+      <button id="addPairButton"></button>
+      <button id="usePositionButton"></button>
+      <button id="confirmPairButton"></button>
+      <button id="cancelPairButton"></button>
+      <div id="pairStatus"></div>
+      <div id="replacePhotoButton"></div>
+      <input id="mapImageInput" type="file" />
       <table id="pairTable"><tbody id="pairTableBody"></tbody></table>
     `;
 
@@ -95,11 +104,17 @@ describe('Scale and Measure UI integration', () => {
         clear: jest.fn(() => { store = {}; }),
       };
     })();
-    Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+    Object.defineProperty(window, 'localStorage', { value: localStorageMock, configurable: true });
 
     // Mock calibrator
     jest.mock('snap2map/calibrator', () => ({
-      calibrateMap: jest.fn(() => ({ status: 'ok', model: { type: 'similarity', scale: 0.1 } })),
+      calibrateMap: jest.fn(() => ({ 
+        status: 'ok', 
+        kind: 'similarity',
+        quality: { rmse: 0.1, maxResidual: 0.2 },
+        statusMessage: { message: 'Calibrated' },
+        model: { type: 'similarity', scale: 0.1 } 
+      })),
       computeAccuracyRing: jest.fn(),
       projectLocationToPixel: jest.fn(),
       accuracyRingRadiusPixels: jest.fn(),
@@ -113,10 +128,12 @@ describe('Scale and Measure UI integration', () => {
       loadSettings, 
       recalculateCalibration,
       handleDistanceModalConfirm,
-      handleDistanceModalCancel
+      handleDistanceModalCancel,
+      cacheDom
     } = indexModule.__testables);
     
-    // Initialize DOM references in the module
+    // Initialize DOM references and maps
+    cacheDom();
     indexModule.__testables.setupMaps(); 
   }
 

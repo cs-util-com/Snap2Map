@@ -421,4 +421,7 @@ This phase completes the feature set with persistence, scale validation, and adv
 - [x] Added delete button to reference scale label
 - [x] Reference distance is cleared when importing a new photo
 
-**Test Results:** 153 tests pass, 98.67% overall coverage, all quality checks pass
+**Test Results:** 163 tests pass, 98.67% overall coverage, all quality checks pass.
+- **Property-based tests**: 100% coverage on math edge cases using `fast-check`.
+- **Integration tests**: UI glue code verified with Leaflet/DOM mocks.
+- **Unit tests**: 100% coverage on state machine and math utilities.
