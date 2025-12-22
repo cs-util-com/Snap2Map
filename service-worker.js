@@ -42,7 +42,7 @@ async function handleShellOrNavigation(request, cache, cached) {
   const isNavigation = request.mode === 'navigate';
   try {
     const response = await fetchAndUpdate(request, cache);
-    if (response) {
+    if (response && response.ok) {
       return response;
     }
   } catch {
