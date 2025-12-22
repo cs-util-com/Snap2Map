@@ -240,13 +240,15 @@ describe('Scale and Measure UI integration', () => {
       expect(window.localStorage.setItem).toHaveBeenCalledWith('snap2map_referenceDistance', expect.any(String));
     });
 
-    it('cancels scale mode on cancel', () => {
+    it('cancels scale mode on cancel and preserves existing reference distance', () => {
+      const existingReference = { meters: 5, metersPerPixel: 0.05 };
+      state.referenceDistance = existingReference;
       state.scaleMode.logic = { active: true, step: 'input', p1: {x:0, y:0}, p2: {x:100, y:0} };
       
       handleDistanceModalCancel();
       
       expect(state.scaleMode.logic.active).toBe(false);
-      expect(state.referenceDistance).toBeNull();
+      expect(state.referenceDistance).toEqual(existingReference);
     });
   });
 });
