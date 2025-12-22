@@ -53,11 +53,12 @@ export function computeReferenceScale(p1, p2, meters) {
   
   const distance = pixelDistance(p1, p2);
   
-  if (distance === 0) {
+  if (distance === 0 || !Number.isFinite(distance)) {
     return null;
   }
   
-  return meters / distance;
+  const scale = meters / distance;
+  return (Number.isFinite(scale) && scale > 0) ? scale : null;
 }
 
 /**
