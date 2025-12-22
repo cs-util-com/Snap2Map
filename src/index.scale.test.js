@@ -9,10 +9,7 @@ describe('Scale and Measure UI integration', () => {
   let handleDistanceModalCancel;
   let cacheDom;
 
-  function loadModule() {
-    jest.resetModules();
-    
-    // Mock Leaflet
+  function setupLeafletMock() {
     const mapMock = {
       on: jest.fn(),
       setView: jest.fn(() => mapMock),
@@ -54,8 +51,9 @@ describe('Scale and Measure UI integration', () => {
       CRS: { Simple: {} },
       DomEvent: { stopPropagation: jest.fn(), on: jest.fn() },
     };
+  }
 
-    // Mock DOM
+  function setupDomMock() {
     document.body.innerHTML = `
       <div id="photoMap"></div>
       <div id="osmMap"></div>
@@ -93,8 +91,9 @@ describe('Scale and Measure UI integration', () => {
       <input id="mapImageInput" type="file" />
       <table id="pairTable"><tbody id="pairTableBody"></tbody></table>
     `;
+  }
 
-    // Mock localStorage
+  function setupLocalStorageMock() {
     const localStorageMock = (() => {
       let store = {};
       return {
@@ -105,8 +104,9 @@ describe('Scale and Measure UI integration', () => {
       };
     })();
     Object.defineProperty(window, 'localStorage', { value: localStorageMock, configurable: true });
+  }
 
-    // Mock calibrator
+  function setupCalibratorMock() {
     jest.mock('snap2map/calibrator', () => ({
       calibrateMap: jest.fn(() => ({ 
         status: 'ok', 
@@ -119,6 +119,15 @@ describe('Scale and Measure UI integration', () => {
       projectLocationToPixel: jest.fn(),
       accuracyRingRadiusPixels: jest.fn(),
     }));
+  }
+
+  function loadModule() {
+    jest.resetModules();
+    
+    setupLeafletMock();
+    setupDomMock();
+    setupLocalStorageMock();
+    setupCalibratorMock();
 
     const indexModule = require('./index.js');
     ({ 
