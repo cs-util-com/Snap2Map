@@ -1506,8 +1506,6 @@ function setupEventHandlers() {
     dom.distanceInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         handleDistanceModalConfirm();
-      } else if (e.key === 'Escape') {
-        handleDistanceModalCancel();
       }
     });
     dom.distanceInput.addEventListener('input', () => {
