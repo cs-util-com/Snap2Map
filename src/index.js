@@ -361,8 +361,17 @@ function updateAccuracyCircle(latlng, ring) {
   }
 }
 
+function isCalibrationReady() {
+  return !!(
+    state.photoMap &&
+    state.calibration &&
+    state.calibration.status === 'ok' &&
+    state.lastPosition
+  );
+}
+
 function updateLivePosition() {
-  if (!state.photoMap || !state.calibration || state.calibration.status !== 'ok' || !state.lastPosition) {
+  if (!isCalibrationReady()) {
     return;
   }
 
