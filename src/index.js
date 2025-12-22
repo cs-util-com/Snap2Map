@@ -8,6 +8,7 @@ import {
 } from 'snap2map/calibrator';
 import {
   formatDistance,
+  convertToMeters,
   METERS_TO_FEET,
 } from './scale/scale.js';
 import {
@@ -787,18 +788,6 @@ function updateScaleModeLine() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Distance Input Modal: Custom dialog for entering reference distances
 // ─────────────────────────────────────────────────────────────────────────────
-
-function convertToMeters(value, unit) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return null;
-  }
-  switch (unit) {
-    case 'ft':
-      return value / METERS_TO_FEET;
-    default:
-      return value;
-  }
-}
 
 function showDistanceModal() {
   if (!dom.distanceModal) {

@@ -176,6 +176,26 @@ export function measureDistance(p1, p2, metersPerPixel) {
 }
 
 /**
+ * Converts a distance value from a given unit to meters.
+ * Validates that the input is a positive finite number.
+ * 
+ * @param {number} value - Numeric distance value
+ * @param {string} unit - Unit of the input value ('m', 'ft')
+ * @returns {number|null} - Distance in meters, or null if invalid
+ */
+export function convertToMeters(value, unit) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  switch (unit) {
+    case 'ft':
+      return value / METERS_TO_FEET;
+    default:
+      return value;
+  }
+}
+
+/**
  * Formats a distance value for display in the user's preferred unit.
  * 
  * @param {number} meters - Distance in meters

@@ -4,7 +4,7 @@
  * separating business logic from DOM/Leaflet interactions.
  */
 
-import { computeReferenceScale, getActiveScale, measureDistance } from './scale.js';
+import { computeReferenceScale, getActiveScale, measureDistance, convertToMeters } from './scale.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Two-Point Mode Handler
@@ -92,8 +92,8 @@ export function validateDistanceInput(input) {
     return { valid: false, error: 'cancelled' };
   }
 
-  const meters = parseFloat(input);
-  if (!Number.isFinite(meters) || meters <= 0) {
+  const meters = convertToMeters(parseFloat(input), 'm');
+  if (meters === null) {
     return { valid: false, error: 'invalid-number' };
   }
 

@@ -4,6 +4,7 @@ import {
   getActiveScale,
   measureDistance,
   formatDistance,
+  convertToMeters,
   compareScales,
   METERS_TO_FEET,
 } from './scale.js';
@@ -307,6 +308,30 @@ describe('scale module', () => {
       expect(measureDistance(p1, p2, -0.1)).toBeNull();
       expect(measureDistance(p1, p2, NaN)).toBeNull();
       expect(measureDistance(p1, p2, Infinity)).toBeNull();
+    });
+  });
+
+  describe('convertToMeters', () => {
+    test('returns value as is for meters', () => {
+      expect(convertToMeters(10, 'm')).toBe(10);
+    });
+
+    test('converts feet to meters', () => {
+      expect(convertToMeters(10, 'ft')).toBe(10 / METERS_TO_FEET);
+    });
+
+    test('returns null for non-finite values', () => {
+      expect(convertToMeters(NaN, 'm')).toBeNull();
+      expect(convertToMeters(Infinity, 'm')).toBeNull();
+    });
+
+    test('returns null for zero or negative values', () => {
+      expect(convertToMeters(0, 'm')).toBeNull();
+      expect(convertToMeters(-5, 'm')).toBeNull();
+    });
+
+    test('defaults to meters for unknown units', () => {
+      expect(convertToMeters(10, 'unknown')).toBe(10);
     });
   });
 
