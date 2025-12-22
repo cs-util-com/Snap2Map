@@ -9,7 +9,6 @@ import {
 import {
   formatDistance,
   convertToMeters,
-  METERS_TO_FEET,
 } from './scale/scale.js';
 import {
   startScaleModeState,
@@ -330,6 +329,38 @@ function updateGpsStatus(message, isError) {
   dom.gpsStatus.className = isError ? 'text-sm text-rose-400' : 'text-sm text-slate-200';
 }
 
+function ensureUserMarker(latlng) {
+  if (!state.userMarker) {
+    state.userMarker = L.circleMarker(latlng, {
+      radius: 6,
+      color: '#2563eb',
+      fillColor: '#2563eb',
+      fillOpacity: 0.9,
+    }).addTo(state.photoMap);
+  } else {
+    state.userMarker.setLatLng(latlng);
+  }
+}
+
+function updateAccuracyCircle(latlng, ring) {
+  if (!ring || !ring.pixelRadius) {
+    return;
+  }
+  if (!state.accuracyCircle) {
+    state.accuracyCircle = L.circle(latlng, {
+      radius: ring.pixelRadius,
+      color: ring.color,
+      weight: 1,
+      fillColor: ring.color,
+      fillOpacity: 0.15,
+    }).addTo(state.photoMap);
+  } else {
+    state.accuracyCircle.setLatLng(latlng);
+    state.accuracyCircle.setRadius(ring.pixelRadius);
+    state.accuracyCircle.setStyle({ color: ring.color, fillColor: ring.color });
+  }
+}
+
 function updateLivePosition() {
   if (!state.photoMap || !state.calibration || state.calibration.status !== 'ok' || !state.lastPosition) {
     return;
@@ -342,38 +373,6 @@ function updateLivePosition() {
     return;
   }
   const latlng = L.latLng(pixel.y, pixel.x);
-
-  function ensureUserMarker(latlngLocal) {
-    if (!state.userMarker) {
-      state.userMarker = L.circleMarker(latlngLocal, {
-        radius: 6,
-        color: '#2563eb',
-        fillColor: '#2563eb',
-        fillOpacity: 0.9,
-      }).addTo(state.photoMap);
-    } else {
-      state.userMarker.setLatLng(latlngLocal);
-    }
-  }
-
-  function updateAccuracyCircle(latlngLocal, ring) {
-    if (!ring || !ring.pixelRadius) {
-      return;
-    }
-    if (!state.accuracyCircle) {
-      state.accuracyCircle = L.circle(latlngLocal, {
-        radius: ring.pixelRadius,
-        color: ring.color,
-        weight: 1,
-        fillColor: ring.color,
-        fillOpacity: 0.15,
-      }).addTo(state.photoMap);
-    } else {
-      state.accuracyCircle.setLatLng(latlngLocal);
-      state.accuracyCircle.setRadius(ring.pixelRadius);
-      state.accuracyCircle.setStyle({ color: ring.color, fillColor: ring.color });
-    }
-  }
 
   ensureUserMarker(latlng);
 
@@ -559,6 +558,21 @@ function advanceGuidedFlow() {
   promptNextGuidedPair();
 }
 
+function showPairSavedToast(savedIndex) {
+  if (isGuidedActive()) {
+    showGuidedPairSavedToast(savedIndex);
+    return;
+  }
+
+  const residual =
+    state.calibration && Array.isArray(state.calibration.residuals)
+      ? state.calibration.residuals[savedIndex]
+      : null;
+  const residualText = residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—';
+  const tone = residual !== null && residual <= 30 ? 'success' : 'info';
+  showToast(`Pair ${savedIndex + 1} saved — residual ${residualText}.`, { tone });
+}
+
 function confirmPair() {
   if (!state.activePair || !state.activePair.pixel || !state.activePair.wgs84) {
     return;
@@ -573,16 +587,7 @@ function confirmPair() {
   recalculateCalibration();
 
   const savedIndex = state.pairs.length - 1;
-  if (!isGuidedActive()) {
-    const residual =
-      state.calibration && Array.isArray(state.calibration.residuals)
-        ? state.calibration.residuals[savedIndex]
-        : null;
-    const residualText = residual !== null && residual !== undefined ? `${residual.toFixed(1)} m` : '—';
-    const tone = residual !== null && residual <= 30 ? 'success' : 'info';
-    showToast(`Pair ${savedIndex + 1} saved — residual ${residualText}.`, { tone });
-  }
-  showGuidedPairSavedToast(savedIndex);
+  showPairSavedToast(savedIndex);
   advanceGuidedFlow();
 }
 
@@ -1352,6 +1357,26 @@ function requestAndCenterOsmOnUser() {
   );
 }
 
+function handleGeolocationPermission(shouldPrompt, doRequest) {
+  if (!navigator.permissions || !navigator.permissions.query) {
+    if (shouldPrompt) doRequest();
+    return;
+  }
+
+  navigator.permissions
+    .query({ name: 'geolocation' })
+    .then((status) => {
+      if (status.state === 'granted') {
+        requestAndCenterOsmOnUser();
+      } else if (status.state === 'prompt' && shouldPrompt) {
+        doRequest();
+      }
+    })
+    .catch(() => {
+      if (shouldPrompt) doRequest();
+    });
+}
+
 function maybePromptGeolocationForOsm() {
   // If we already have a recent position, prefer that immediately
   if (state.lastPosition && Date.now() - (state.lastGpsUpdate || 0) <= 5_000) {
@@ -1374,36 +1399,12 @@ function maybePromptGeolocationForOsm() {
   if (!navigator.geolocation) return;
 
   const shouldPrompt = !state.osmGeoPrompted;
-
-  // Try Permissions API to avoid unnecessary prompt where already denied/granted
   const doRequest = () => {
     if (shouldPrompt) state.osmGeoPrompted = true;
     requestAndCenterOsmOnUser();
   };
 
-  if (navigator.permissions && navigator.permissions.query) {
-    try {
-      navigator.permissions
-        .query({ name: 'geolocation' })
-        .then((status) => {
-          if (status.state === 'granted') {
-            // No prompt needed; just center
-            requestAndCenterOsmOnUser();
-          } else if (status.state === 'prompt') {
-            // Only trigger the browser prompt the first time we open OSM
-            if (shouldPrompt) doRequest();
-          }
-          // if denied → do nothing
-        })
-        .catch(() => {
-          if (shouldPrompt) doRequest();
-        });
-    } catch {
-      if (shouldPrompt) doRequest();
-    }
-  } else {
-    if (shouldPrompt) doRequest();
-  }
+  handleGeolocationPermission(shouldPrompt, doRequest);
 }
 
 function setActiveView(view) {
