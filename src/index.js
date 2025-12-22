@@ -1776,4 +1776,11 @@ export const __testables = {
   state,
   maybePromptGeolocationForOsm,
   requestAndCenterOsmOnUser,
+  checkScaleDisagreement,
+  saveSettings,
+  loadSettings,
+  recalculateCalibration,
+  handleDistanceModalConfirm,
+  handleDistanceModalCancel,
+  cacheDom,
 };
