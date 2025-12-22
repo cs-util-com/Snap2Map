@@ -746,6 +746,14 @@ function createScaleMarkerIcon(color = COLORS.SCALE) {
   });
 }
 
+function createDistanceLabelHtml({ meters, color, icon, showPin = false, showDelete = false, extraClass = '' }) {
+  const distanceText = formatDistance(meters, state.preferredUnit);
+  const pinHtml = showPin ? '<button class="pin-btn ml-2 px-1 bg-white/20 hover:bg-white/40 rounded" title="Pin measurement">📌</button>' : '';
+  const deleteHtml = showDelete ? '<button class="delete-ref-btn ml-1 px-1 bg-white/20 hover:bg-white/40 rounded" title="Delete scale">✕</button>' : '';
+  
+  return `<div class="distance-label ${extraClass}" style="background:${color};">${icon} ${distanceText}${pinHtml}${deleteHtml}</div>`;
+}
+
 function clearScaleModeMarkers() {
   if (state.scaleMode.ui.marker1) {
     state.scaleMode.ui.marker1.remove();
@@ -821,7 +829,12 @@ function drawReferenceVisualization() {
   state.referenceMarkers.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'reference-label',
-      html: `<div class="distance-label" style="background:${COLORS.REFERENCE};">📏 ${formatDistance(meters, state.preferredUnit)} <button class="delete-ref-btn ml-1 px-1 bg-white/20 hover:bg-white/40 rounded" title="Delete scale">✕</button></div>`,
+      html: createDistanceLabelHtml({
+        meters,
+        color: COLORS.REFERENCE,
+        icon: '📏',
+        showDelete: true,
+      }),
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
@@ -1045,7 +1058,6 @@ function updateMeasureLabel() {
   const midLat = (p1.y + p2.y) / 2;
   const midLng = (p1.x + p2.x) / 2;
   const sourceIcon = result.source === 'manual' ? '📏' : '📡';
-  const pinButtonHtml = '<button class="pin-btn ml-2 px-1 bg-white/20 hover:bg-white/40 rounded" title="Pin measurement">📌</button>';
   
   if (state.measureMode.ui.label) {
     state.measureMode.ui.label.remove();
@@ -1054,7 +1066,13 @@ function updateMeasureLabel() {
   state.measureMode.ui.label = L.marker(L.latLng(midLat, midLng), {
     icon: L.divIcon({
       className: 'measure-label',
-      html: `<div class="distance-label distance-label--measure" style="background:${COLORS.MEASURE};">${sourceIcon} ${formatDistance(result.meters, state.preferredUnit)}${pinButtonHtml}</div>`,
+      html: createDistanceLabelHtml({
+        meters: result.meters,
+        color: COLORS.MEASURE,
+        icon: sourceIcon,
+        showPin: true,
+        extraClass: 'distance-label--measure',
+      }),
       iconAnchor: [0, 0],
     }),
   }).addTo(state.photoMap);
@@ -1229,11 +1247,16 @@ function pinCurrentMeasurement() {
   
   // Remove the pin button from the label if it exists
   if (pinnedItem.ui.label) {
-    const labelHtml = pinnedItem.ui.label.options.icon.options.html;
-    const newHtml = labelHtml.replace(/<button.*<\/button>/, '');
+    const sourceIcon = pinnedItem.source === 'manual' ? '📏' : '📡';
     pinnedItem.ui.label.setIcon(L.divIcon({
       className: 'measure-label',
-      html: newHtml,
+      html: createDistanceLabelHtml({
+        meters: pinnedItem.meters,
+        color: COLORS.MEASURE,
+        icon: sourceIcon,
+        showPin: false,
+        extraClass: 'distance-label--measure',
+      }),
       iconAnchor: [0, 0],
     }));
   }
