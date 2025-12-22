@@ -8,6 +8,31 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" crossorigin="anonymous">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom marker and label styles for scale/measure features */
+    .scale-marker-dot {
+      width: 14px;
+      height: 14px;
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    .distance-label {
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      transform: translate(-50%, -100%);
+      margin-top: -4px;
+    }
+    .distance-label--measure {
+      padding: 3px 10px;
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <div class="min-h-screen flex flex-col lg:items-stretch">
@@ -42,6 +67,9 @@
                 <button id="usePositionButton" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 transition">Use my position</button>
                 <button id="confirmPairButton" class="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold opacity-80 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-violet-500 transition" disabled>Confirm pair</button>
                 <button id="cancelPairButton" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold opacity-80 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-600 transition" disabled>Cancel</button>
+                <span class="hidden sm:inline-block w-px h-6 bg-slate-600 self-center"></span>
+                <button id="setScaleButton" class="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-500 transition" title="Set a known distance on the photo to define the scale">📏 Set Scale</button>
+                <button id="measureButton" class="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition" disabled title="Measure distances on the photo">📐 Measure</button>
               </div>
             </div>
           </div>
@@ -112,6 +140,48 @@
   </div>
 
   <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-50 space-y-2 w-[calc(100%-2rem)] max-w-sm pointer-events-none"></div>
+
+  <!-- Distance Input Modal -->
+  <div id="distanceModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="distanceModalTitle">
+    <div class="w-full max-w-sm mx-4 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+      <div class="px-6 py-5 border-b border-slate-800">
+        <h2 id="distanceModalTitle" class="text-lg font-semibold text-slate-100">Enter Reference Distance</h2>
+        <p class="text-sm text-slate-400 mt-1">Specify the real-world distance between the two points.</p>
+      </div>
+      <div class="px-6 py-5 space-y-4">
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <label for="distanceInput" class="block text-sm font-medium text-slate-300 mb-2">Distance</label>
+            <input
+              id="distanceInput"
+              type="number"
+              step="any"
+              min="0"
+              inputmode="decimal"
+              placeholder="e.g. 10"
+              class="w-full px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autocomplete="off"
+            >
+          </div>
+          <div class="w-28">
+            <label for="distanceUnit" class="block text-sm font-medium text-slate-300 mb-2">Unit</label>
+            <select
+              id="distanceUnit"
+              class="w-full px-3 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="m">Meters</option>
+              <option value="ft">Feet</option>
+            </select>
+          </div>
+        </div>
+        <p id="distanceError" class="text-sm text-rose-400 hidden">Please enter a valid positive number.</p>
+      </div>
+      <div class="px-6 py-4 bg-slate-900/50 border-t border-slate-800 flex justify-end gap-3">
+        <button id="distanceCancelBtn" type="button" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold hover:bg-slate-600 transition">Cancel</button>
+        <button id="distanceConfirmBtn" type="button" class="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-500 transition">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js" crossorigin="anonymous"></script>

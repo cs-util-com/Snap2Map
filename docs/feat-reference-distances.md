@@ -289,22 +289,112 @@ This property is now documented in the test suite to prevent future confusion.
 
 ---
 
-### 🔲 Phase 2: UI Layer (Not Started)
+### ✅ Phase 1.5: Scale Helpers & State Extension (Completed)
 
-This phase implements the user-facing features: setting a reference distance and measuring arbitrary distances.
+**Date:** 2025-12-21
+
+This phase implements the pure utility functions for scale management and extends the application state.
+
+#### `src/scale/scale.js` (New Module)
+- [x] Created new `src/scale/` directory with `scale.js` module
+- [x] Implemented `computeReferenceScale(p1, p2, meters)` - computes m/px from two points and known distance
+- [x] Implemented `getMetersPerPixelFromCalibration(calibrationResult)` - extracts scale from calibration
+- [x] Implemented `getActiveScale(state)` - determines active scale source (manual > GPS priority)
+- [x] Implemented `measureDistance(p1, p2, metersPerPixel)` - calculates distance between pixel points
+- [x] Implemented `formatDistance(meters, unit)` - formats for display (m, cm, mm, ft, ft-in)
+- [x] Implemented `compareScales(scale1, scale2, threshold)` - detects scale disagreement
+- [x] Exported constants: `METERS_PER_DEGREE_EQUATOR`, `METERS_TO_FEET`
+
+#### `src/scale/scale.test.js`
+- [x] 52 comprehensive unit tests covering all functions
+- [x] 100% statement and branch coverage
+- [x] Edge cases: invalid inputs, null/undefined, coincident points, boundary conditions
 
 #### `src/index.js`
-- [ ] Add `referenceDistance` to application state
-- [ ] Implement "Set Scale" mode (`startReferenceMode()`)
-  - Two-tap workflow to define reference line
-  - Input dialog for distance in meters
-  - Visual feedback with dashed line and label
-- [ ] Implement "Measure" mode (`startMeasureMode()`)
-  - Two-tap workflow to draw measurement line
-  - Real-time distance calculation using `metersPerPixel`
-  - Draggable endpoints for refinement
-- [ ] Add UI buttons to toolbar
+- [x] Added `referenceDistance: null` to state object (structure: `{ p1, p2, meters, metersPerPixel }`)
+- [x] Added `preferredUnit: 'm'` to state object for user's display preference
+
+**Test Results:** 99 tests pass, 98.6% overall coverage (scale module: 100%)
+
+---
+
+### ✅ Phase 1.6: State Machine Extraction (Completed)
+
+**Date:** 2025-12-21
+
+This phase extracts testable state machine logic from the UI layer into pure functions.
+
+#### `src/scale/scale-mode.js` (New Module)
+- [x] Created `scale-mode.js` with pure state machine functions
+- [x] Extracted shared `handleTwoPointModeClick()` helper (eliminates duplication)
+
+**Scale Mode Functions:**
+- [x] `createScaleModeState()` - Creates initial state
+- [x] `startScaleModeState(currentState)` - Activates scale mode
+- [x] `handleScaleModePoint(currentState, point)` - Processes point clicks
+- [x] `validateDistanceInput(input, unit)` - Validates user's distance input
+- [x] `computeReferenceDistanceFromInput(scaleModeState, meters)` - Computes reference distance
+- [x] `cancelScaleModeState()` - Resets state
+
+**Measure Mode Functions:**
+- [x] `createMeasureModeState()` - Creates initial state
+- [x] `canStartMeasureMode(appState)` - Checks if scale is available
+- [x] `startMeasureModeState(currentState)` - Activates measure mode
+- [x] `handleMeasureModePoint(currentState, point)` - Processes point clicks
+- [x] `updateMeasureModePoint(currentState, pointId, newPoint)` - Handles drag updates
+- [x] `computeMeasurement(measureState, appState)` - Computes distance
+- [x] `cancelMeasureModeState()` - Resets state
+
+**UI State Derivation:**
+- [x] `shouldEnableMeasureButton(appState, measureModeState)` - Button enablement logic
+- [x] `shouldEnableSetScaleButton(scaleModeState)` - Button enablement logic
+
+#### `src/scale/scale-mode.test.js`
+- [x] 48 comprehensive unit tests
+- [x] 100% statement and branch coverage
+- [x] Tests state transitions, validation, error handling, UI derivation
+
+**Test Results:** 147 tests pass, scale modules at 100% coverage, zero code duplication
+
+---
+
+### ✅ Phase 2: UI Layer (Complete)
+
+**Date:** 2025-12-21
+
+This phase implements the user-facing features and refactors `index.js` to use the testable state machine.
+
+#### `src/index.js` (UI Integration)
+- [x] Updated imports to use `scale-mode.js` functions
+- [x] Refactored `startScaleMode()` to use `startScaleModeState()`
+- [x] Refactored `cancelScaleMode()` to use `cancelScaleModeState()`
+- [x] Refactored `handleScaleModeClick()` to use `handleScaleModePoint()` with action dispatch
+- [x] Refactored `promptForReferenceDistance()` to use `validateDistanceInput()` and `computeReferenceDistanceFromInput()`
+- [x] Refactored `startMeasureMode()` to use `canStartMeasureMode()` and `startMeasureModeState()`
+- [x] Refactored `cancelMeasureMode()` to use `cancelMeasureModeState()`
+- [x] Refactored `handleMeasureModeClick()` to use `handleMeasureModePoint()` with action dispatch
+- [x] Refactored `updateMeasureLabel()` to use `computeMeasurement()`
+- [x] Refactored `updateMeasureButtonState()` to use `shouldEnableMeasureButton()`
+- [x] Drag handlers use `updateMeasureModePoint()` for state updates
+
+#### Architecture Pattern
+The refactored code follows an **action-based dispatch pattern**:
+1. User interaction (click/drag) → extract pixel coordinates
+2. Call pure state machine function → returns `{ state, action }`
+3. Update logical state with `Object.assign(state.mode, newState)`
+4. Dispatch UI side effects based on `action` string ('show-p2-toast', 'prompt-distance', 'measurement-complete')
+
+This separates:
+- **Testable logic** (in `scale-mode.js`) - state transitions, validation, computations
+- **UI effects** (in `index.js`) - Leaflet markers, toasts, DOM updates
+
+**Test Results:** 147 tests pass, 100% coverage on scale modules, zero code duplication, all quality checks pass
+
+---
+
+### 🔲 Phase 3: Remaining Work
+
+#### Not Yet Implemented
 - [ ] Persistence of `referenceDistance` to IndexedDB
-
-
-
+- [ ] Scale disagreement warning (when GPS and manual scales differ by >10%)
+- [ ] Unit selection UI (m/ft/ft-in preference)
