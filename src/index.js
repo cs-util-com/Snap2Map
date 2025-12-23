@@ -1032,7 +1032,7 @@ function startOneTapMode() {
   // Cancel other modes
   cancelScaleMode();
   cancelMeasureMode();
-  cancelActivePair();
+  cancelPairMode();
   
   state.oneTapMode.active = true;
   if (dom.oneTapCalibrateButton) {

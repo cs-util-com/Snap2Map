@@ -149,7 +149,12 @@ describe('Scale and Measure UI integration', () => {
       handleDistanceModalConfirm,
       handleDistanceModalCancel,
       cacheDom,
-      setupEventHandlers
+      setupEventHandlers,
+      loadPhotoMap,
+      confirmPair,
+      startOneTapMode,
+      handleOneTapClick,
+      handlePhotoClick
     } = indexModule.__testables);
     
     // Initialize DOM references and maps
@@ -302,7 +307,6 @@ describe('Scale and Measure UI integration', () => {
 
   describe('Instant Usage', () => {
     it('shows prompts after photo import', () => {
-      const { loadPhotoMap } = require('./index.js');
       loadPhotoMap('data:image/png;base64,xxx', 1000, 1000);
       
       const prompts = document.getElementById('instantUsagePrompts');
@@ -310,7 +314,6 @@ describe('Scale and Measure UI integration', () => {
     });
 
     it('hides prompts after scale is set', () => {
-      const { handleDistanceModalConfirm } = require('./index.js');
       state.scaleMode.logic = { active: true, step: 'input', p1: {x:0, y:0}, p2: {x:100, y:0} };
       document.getElementById('distanceInput').value = '10';
       
@@ -321,7 +324,6 @@ describe('Scale and Measure UI integration', () => {
     });
 
     it('hides prompts after a pair is confirmed', () => {
-      const { confirmPair } = require('./index.js');
       state.activePair = { pixel: {x:10, y:10}, wgs84: {lat:0, lon:0} };
       
       confirmPair();
@@ -331,7 +333,6 @@ describe('Scale and Measure UI integration', () => {
     });
 
     it('performs one-tap calibration', () => {
-      const { startOneTapMode, handlePhotoClick } = require('./index.js');
       state.lastPosition = { coords: { latitude: 40, longitude: -105, accuracy: 10 } };
       
       startOneTapMode();
