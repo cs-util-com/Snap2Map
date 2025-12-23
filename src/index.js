@@ -1449,6 +1449,8 @@ function loadPhotoMap(dataUrl, width, height) {
   // Show instant usage prompts if no scale is set and no pairs exist
   if (dom.instantUsagePrompts && state.pairs.length === 0 && !state.referenceDistance) {
     dom.instantUsagePrompts.classList.remove('hidden');
+  } else if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
   }
 
   state.imageDataUrl = dataUrl;

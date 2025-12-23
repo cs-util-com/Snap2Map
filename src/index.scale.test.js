@@ -307,10 +307,11 @@ describe('Scale and Measure UI integration', () => {
 
   describe('Instant Usage', () => {
     it('shows prompts after photo import', () => {
+      state.pairs = [];
+      state.referenceDistance = null;
       loadPhotoMap('data:image/png;base64,xxx', 1000, 1000);
       
       const prompts = document.getElementById('instantUsagePrompts');
-      console.log('TEST DEBUG: prompts classes:', prompts.className);
       expect(prompts.classList.contains('hidden')).toBe(false);
     });
 
