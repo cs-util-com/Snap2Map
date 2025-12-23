@@ -2,6 +2,7 @@ import { computeOrigin, wgs84ToEnu } from '../geo/coordinate.js';
 import {
   fitSimilarity,
   fitSimilarityFixedScale,
+  fitSimilarity1Point,
   fitAffine,
   fitHomography,
   applyTransform,
@@ -215,11 +216,47 @@ function pixelFromLocation(calibration, location) {
   return pixel || null;
 }
 
-export function calibrateMap(pairs, userOptions = {}) {
-  if (!pairs || pairs.length < 2) {
+function calibrate1Point(enrichedPairs, origin, referenceScale, userOptions) {
+  if (!referenceScale) {
     return {
       status: 'insufficient-pairs',
-      message: 'At least two reference pairs are required to calibrate the map.',
+      message: 'A reference scale is required for 1-point calibration.',
+    };
+  }
+  const rotation = userOptions.defaultRotation || 0;
+  const model = fitSimilarity1Point(enrichedPairs[0], referenceScale, rotation);
+  if (!model) {
+    return {
+      status: 'fit-failed',
+      message: '1-point calibration failed.',
+    };
+  }
+  return {
+    status: 'ok',
+    origin,
+    kind: 'similarity',
+    model,
+    metrics: {
+      rmse: 0,
+      maxResidual: 0,
+      inliers: enrichedPairs,
+      residuals: [0],
+    },
+    quality: {
+      rmse: 0,
+      maxResidual: 0,
+    },
+    statusMessage: { level: 'low', message: '1-point calibration (North-up). Add a second point to fix orientation and scale.' },
+    residuals: [0],
+    inliers: enrichedPairs,
+  };
+}
+
+export function calibrateMap(pairs, userOptions = {}) {
+  if (!pairs || pairs.length < 1) {
+    return {
+      status: 'insufficient-pairs',
+      message: 'At least one reference pair is required to calibrate the map.',
     };
   }
 
@@ -227,6 +264,10 @@ export function calibrateMap(pairs, userOptions = {}) {
   const origin = userOptions.origin || computeOrigin(pairs);
   const enrichedPairs = createEnrichedPairs(pairs, origin);
   const referenceScale = userOptions.referenceScale;
+
+  if (enrichedPairs.length === 1) {
+    return calibrate1Point(enrichedPairs, origin, referenceScale, userOptions);
+  }
 
   const modelKinds = pickModelKinds(enrichedPairs.length);
 

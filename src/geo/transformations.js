@@ -37,6 +37,27 @@ function computeWeightedCentroids(pairs, weights) {
   };
 }
 
+export function fitSimilarity1Point(pair, scale, rotation = 0) {
+  if (!pair || !pair.pixel || !pair.enu || !Number.isFinite(scale) || scale <= 0) {
+    return null;
+  }
+
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+
+  const tx = pair.enu.x - scale * (cos * pair.pixel.x - sin * pair.pixel.y);
+  const ty = pair.enu.y - scale * (sin * pair.pixel.x + cos * pair.pixel.y);
+
+  return {
+    type: 'similarity',
+    scale,
+    rotation,
+    cos,
+    sin,
+    translation: { x: tx, y: ty },
+  };
+}
+
 export function fitSimilarity(pairs, weights) {
   if (pairs.length < 2) {
     return null;
@@ -529,6 +550,7 @@ const api = {
   TOLERANCE,
   fitSimilarity,
   fitSimilarityFixedScale,
+  fitSimilarity1Point,
   fitAffine,
   fitHomography,
   applyTransform,

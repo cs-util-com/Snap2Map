@@ -100,8 +100,24 @@ describe('calibrator', () => {
     expect(ring.pixelRadius).toBeLessThan(1000);
   });
 
-  test('calibrateMap handles insufficient pairs', () => {
-    const result = calibrateMap([{ pixel: { x: 0, y: 0 }, wgs84: origin }]);
+  test('calibrateMap supports 1-point calibration with referenceScale', () => {
+    const pair = { pixel: { x: 100, y: 100 }, wgs84: { lat: 40, lon: -105 } };
+    const referenceScale = 0.5;
+    const result = calibrateMap([pair], { referenceScale });
+    
+    expect(result.status).toBe('ok');
+    expect(result.kind).toBe('similarity');
+    expect(result.model.scale).toBe(referenceScale);
+    expect(result.statusMessage.message).toContain('1-point calibration');
+    
+    const projected = projectLocationToPixel(result, pair.wgs84);
+    expect(projected.x).toBeCloseTo(pair.pixel.x);
+    expect(projected.y).toBeCloseTo(pair.pixel.y);
+  });
+
+  test('calibrateMap fails 1-point calibration without referenceScale', () => {
+    const pair = { pixel: { x: 100, y: 100 }, wgs84: { lat: 40, lon: -105 } };
+    const result = calibrateMap([pair]);
     expect(result.status).toBe('insufficient-pairs');
   });
 

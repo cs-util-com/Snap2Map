@@ -104,6 +104,10 @@ const state = {
     },
     pinned: [], // Array of { p1, p2, meters, source, ui: { marker1, marker2, line, label } }
   },
+  // One-tap calibration mode (Phase 3 feature)
+  oneTapMode: {
+    active: false,
+  },
 };
 
 const dom = {};
@@ -246,23 +250,19 @@ function checkScaleDisagreement() {
   }
 }
 
-function updateStatusText() {
-  if (!dom.calibrationStatus) {
-    return;
-  }
-  
-  checkScaleDisagreement();
+function updateNoCalibrationStatus() {
+  const minPairs = state.referenceDistance ? 1 : 2;
+  dom.calibrationStatus.textContent = minPairs === 1 
+    ? 'Add at least one reference pair to calibrate the photo.' 
+    : 'Add at least two reference pairs to calibrate the photo.';
+  dom.calibrationBadge.textContent = 'No calibration';
+  dom.calibrationBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700';
+  dom.residualSummary.textContent = '';
+  dom.accuracyDetails.textContent = '';
+}
 
-  if (!state.calibration || state.calibration.status !== 'ok') {
-    dom.calibrationStatus.textContent = 'Add at least two reference pairs to calibrate the photo.';
-    dom.calibrationBadge.textContent = 'No calibration';
-    dom.calibrationBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700';
-    dom.residualSummary.textContent = '';
-    dom.accuracyDetails.textContent = '';
-    return;
-  }
-
-    const { kind, quality, statusMessage } = state.calibration;
+function updateActiveCalibrationStatus() {
+  const { kind, quality, statusMessage } = state.calibration;
   dom.calibrationStatus.textContent = statusMessage.message;
   dom.calibrationBadge.textContent = kind.toUpperCase();
   const badgeColor = kind === 'homography' ? 'bg-emerald-200 text-emerald-800' : kind === 'affine' ? 'bg-yellow-200 text-yellow-800' : 'bg-orange-200 text-orange-800';
@@ -270,7 +270,7 @@ function updateStatusText() {
   dom.residualSummary.textContent = `RMSE ${quality.rmse.toFixed(2)} m · Max residual ${quality.maxResidual.toFixed(2)} m`;
 
   if (state.lastPosition) {
-      const ring = computeAccuracyRing(state.calibration, state.lastPosition.coords.accuracy || 50);
+    const ring = computeAccuracyRing(state.calibration, state.lastPosition.coords.accuracy || 50);
     if (ring) {
       dom.accuracyDetails.textContent = `Combined accuracy ${ring.sigmaTotal.toFixed(1)} m (GPS ${ring.sigmaGps.toFixed(1)} m, Map ${ring.sigmaMap.toFixed(1)} m)`;
     }
@@ -279,12 +279,30 @@ function updateStatusText() {
   }
 }
 
+function updateStatusText() {
+  if (!dom.calibrationStatus) {
+    return;
+  }
+  
+  checkScaleDisagreement();
+
+  if (!state.calibration || state.calibration.status !== 'ok') {
+    updateNoCalibrationStatus();
+    return;
+  }
+
+  updateActiveCalibrationStatus();
+}
+
 function setPhotoImportState(hasImage) {
   if (dom.photoPlaceholder) {
     dom.photoPlaceholder.classList.toggle('hidden', hasImage);
   }
   if (dom.replacePhotoButton) {
     dom.replacePhotoButton.classList.toggle('hidden', !hasImage);
+  }
+  if (!hasImage && dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
   }
 }
 
@@ -548,7 +566,18 @@ function updatePairStatus() {
 }
 
 function beginPairMode() {
+  // Cancel other modes
+  cancelScaleMode();
+  cancelMeasureMode();
+  cancelOneTapMode();
+
   state.activePair = { pixel: null, wgs84: null };
+  
+  // Hide prompts since we are starting a manual pair
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
+
   clearActivePairMarkers();
   updatePairStatus();
   dom.addPairButton.disabled = true;
@@ -629,6 +658,12 @@ function confirmPair() {
     pixel: state.activePair.pixel,
     wgs84: state.activePair.wgs84,
   });
+  
+  // Hide prompts since we now have a pair
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
+  
   cancelPairMode();
   renderPairList();
   refreshPairMarkers();
@@ -652,6 +687,13 @@ function onPairTableClick(event) {
 }
 
 function handlePhotoClick(event) {
+  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+
+  if (state.oneTapMode.active) {
+    handleOneTapClick(pixel);
+    return;
+  }
+
   // Route to scale mode handler first
   if (handleScaleModeClick(event)) {
     return;
@@ -666,7 +708,6 @@ function handlePhotoClick(event) {
   if (!state.activePair) {
     return;
   }
-  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
   state.activePair.pixel = pixel;
   if (state.photoActiveMarker) {
     state.photoActiveMarker.setLatLng(event.latlng);
@@ -953,6 +994,11 @@ function handleDistanceModalConfirm() {
   recalculateCalibration();
   saveSettings();
   showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
+  
+  // Hide prompts since we now have a scale
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
 }
 
 function promptForReferenceDistance() {
@@ -966,6 +1012,7 @@ function startScaleMode() {
   if (state.measureMode.logic.active) {
     cancelMeasureMode();
   }
+  cancelOneTapMode();
   
   state.scaleMode.logic = startScaleModeState(state.scaleMode.logic);
   clearScaleModeMarkers();
@@ -985,6 +1032,57 @@ function cancelScaleMode() {
   if (dom.setScaleButton) {
     dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode.logic);
   }
+}
+
+function startOneTapMode() {
+  if (state.oneTapMode.active) return;
+  
+  // Cancel other modes
+  cancelScaleMode();
+  cancelMeasureMode();
+  cancelPairMode();
+  
+  state.oneTapMode.active = true;
+  if (dom.oneTapCalibrateButton) {
+    dom.oneTapCalibrateButton.classList.add('ring-2', 'ring-white', 'scale-105');
+    dom.oneTapCalibrateButton.textContent = '📍 Tap your location';
+  }
+  
+  showToast('Tap your current location on the photo', { tone: 'info' });
+}
+
+function cancelOneTapMode() {
+  state.oneTapMode.active = false;
+  if (dom.oneTapCalibrateButton) {
+    dom.oneTapCalibrateButton.classList.remove('ring-2', 'ring-white', 'scale-105');
+    dom.oneTapCalibrateButton.textContent = '📍 I am here';
+  }
+}
+
+function handleOneTapClick(pixel) {
+  if (!state.oneTapMode.active) return;
+  
+  cancelOneTapMode();
+  
+  if (!state.lastPosition) {
+    showToast('Waiting for GPS position fix...', { tone: 'warning' });
+    return;
+  }
+  
+  const wgs84 = {
+    lat: state.lastPosition.coords.latitude,
+    lon: state.lastPosition.coords.longitude,
+  };
+  
+  state.pairs.push({ pixel, wgs84 });
+  
+  // Hide prompts since we now have a pair
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
+  
+  recalculateCalibration();
+  showToast('1-point calibration active (North-up)', { tone: 'success' });
 }
 
 function handleScaleModeClick(event) {
@@ -1127,6 +1225,7 @@ function startMeasureMode() {
   if (state.scaleMode.logic.active) {
     cancelScaleMode();
   }
+  cancelOneTapMode();
   
   // If there's a completed measurement, pin it automatically
   if (state.measureMode.logic.active && state.measureMode.logic.step === null) {
@@ -1290,22 +1389,15 @@ function clearAllMeasurements() {
   updateMeasureButtonState();
 }
 
-function recalculateCalibration() {
-  if (state.pairs.length < 2) {
-    state.calibration = null;
-    refreshPairMarkers();
-    updateStatusText();
-    stopGeolocationWatch();
-    updateMeasureButtonState();
-    return;
-  }
+function handleInsufficientPairs() {
+  state.calibration = null;
+  refreshPairMarkers();
+  updateStatusText();
+  stopGeolocationWatch();
+  updateMeasureButtonState();
+}
 
-  const options = {};
-  if (state.referenceDistance && state.referenceDistance.metersPerPixel) {
-    options.referenceScale = state.referenceDistance.metersPerPixel;
-  }
-
-  const result = calibrateMap(state.pairs, options);
+function handleCalibrationResult(result) {
   state.calibration = result.status === 'ok' ? result : null;
 
   if (!state.calibration) {
@@ -1316,9 +1408,26 @@ function recalculateCalibration() {
       state.accuracyCircle = null;
     }
   } else {
-    updateGpsStatus('Calibration ready. Live mode active.', false);
+    const msg = (result.statusMessage && result.statusMessage.message) || 'Calibration ready. Live mode active.';
+    updateGpsStatus(msg, false);
     startGeolocationWatch();
   }
+}
+
+function recalculateCalibration() {
+  const minPairs = state.referenceDistance ? 1 : 2;
+  if (state.pairs.length < minPairs) {
+    handleInsufficientPairs();
+    return;
+  }
+
+  const options = {};
+  if (state.referenceDistance && state.referenceDistance.metersPerPixel) {
+    options.referenceScale = state.referenceDistance.metersPerPixel;
+  }
+
+  const result = calibrateMap(state.pairs, options);
+  handleCalibrationResult(result);
 
   renderPairList();
   refreshPairMarkers();
@@ -1352,6 +1461,11 @@ function loadPhotoMap(dataUrl, width, height) {
   state.photoMap.fitBounds(bounds);
 
   setPhotoImportState(true);
+  
+  // Show instant usage prompts if no scale is set and no pairs exist
+  if (dom.instantUsagePrompts && state.pairs.length === 0 && !state.referenceDistance) {
+    dom.instantUsagePrompts.classList.remove('hidden');
+  }
 
   state.imageDataUrl = dataUrl;
   state.imageSize = { width, height };
@@ -1668,6 +1782,9 @@ function cacheDom() {
   dom.setScaleButton = $('setScaleButton');
   dom.measureButton = $('measureButton');
   dom.clearMeasurementsButton = $('clearMeasurementsButton');
+  dom.instantUsagePrompts = $('instantUsagePrompts');
+  dom.instantSetScaleButton = $('instantSetScaleButton');
+  dom.oneTapCalibrateButton = $('oneTapCalibrateButton');
   // Distance input modal
   dom.distanceModal = $('distanceModal');
   dom.distanceInput = $('distanceInput');
@@ -1677,63 +1794,34 @@ function cacheDom() {
   dom.distanceConfirmBtn = $('distanceConfirmBtn');
 }
 
-function setupEventHandlers() {
-  dom.mapImageInput.addEventListener('change', handleImageImport);
-  dom.addPairButton.addEventListener('click', beginPairMode);
-  dom.cancelPairButton.addEventListener('click', () => {
-    const wasGuided = isGuidedActive();
-    cancelPairMode();
-    if (wasGuided) {
-      stopGuidedPairing('cancelled');
+function handleGlobalUnitChange(e) {
+  state.preferredUnit = e.target.value;
+  // Refresh visualizations that use the unit
+  drawReferenceVisualization();
+  updateMeasureLabel();
+
+  // Also update all pinned measurement labels
+  state.measureMode.pinned.forEach((item) => {
+    if (item.ui.label) {
+      const sourceIcon = item.source === 'manual' ? '📏' : '📡';
+      item.ui.label.setIcon(L.divIcon({
+        className: 'measure-label',
+        html: createDistanceLabelHtml({
+          meters: item.meters,
+          color: COLORS.MEASURE,
+          icon: sourceIcon,
+          showPin: false,
+          extraClass: 'distance-label--measure',
+        }),
+        iconAnchor: [0, 0],
+      }));
     }
   });
-  dom.confirmPairButton.addEventListener('click', confirmPair);
-  dom.usePositionButton.addEventListener('click', useCurrentPositionForPair);
-  dom.pairTableBody.addEventListener('click', onPairTableClick);
-  dom.photoTabButton.addEventListener('click', () => setActiveView('photo'));
-  dom.osmTabButton.addEventListener('click', () => setActiveView('osm'));
-  
-  // Global unit selector
-  if (dom.globalUnitSelect) {
-    dom.globalUnitSelect.addEventListener('change', (e) => {
-      state.preferredUnit = e.target.value;
-      // Refresh visualizations that use the unit
-      drawReferenceVisualization();
-      updateMeasureLabel();
 
-      // Also update all pinned measurement labels
-      state.measureMode.pinned.forEach((item) => {
-        if (item.ui.label) {
-          const sourceIcon = item.source === 'manual' ? '📏' : '📡';
-          item.ui.label.setIcon(L.divIcon({
-            className: 'measure-label',
-            html: createDistanceLabelHtml({
-              meters: item.meters,
-              color: COLORS.MEASURE,
-              icon: sourceIcon,
-              showPin: false,
-              extraClass: 'distance-label--measure',
-            }),
-            iconAnchor: [0, 0],
-          }));
-        }
-      });
+  saveSettings();
+}
 
-      saveSettings();
-    });
-  }
-  
-  // Scale and measure mode handlers
-  if (dom.setScaleButton) {
-    dom.setScaleButton.addEventListener('click', startScaleMode);
-  }
-  if (dom.measureButton) {
-    dom.measureButton.addEventListener('click', startMeasureMode);
-  }
-  if (dom.clearMeasurementsButton) {
-    dom.clearMeasurementsButton.addEventListener('click', clearAllMeasurements);
-  }
-  
+function setupModalEventHandlers() {
   // Distance modal handlers
   if (dom.distanceCancelBtn) {
     dom.distanceCancelBtn.addEventListener('click', handleDistanceModalCancel);
@@ -1764,6 +1852,47 @@ function setupEventHandlers() {
       }
     });
   }
+}
+
+function setupEventHandlers() {
+  dom.mapImageInput.addEventListener('change', handleImageImport);
+  dom.addPairButton.addEventListener('click', beginPairMode);
+  dom.cancelPairButton.addEventListener('click', () => {
+    const wasGuided = isGuidedActive();
+    cancelPairMode();
+    if (wasGuided) {
+      stopGuidedPairing('cancelled');
+    }
+  });
+  dom.confirmPairButton.addEventListener('click', confirmPair);
+  dom.usePositionButton.addEventListener('click', useCurrentPositionForPair);
+  dom.pairTableBody.addEventListener('click', onPairTableClick);
+  dom.photoTabButton.addEventListener('click', () => setActiveView('photo'));
+  dom.osmTabButton.addEventListener('click', () => setActiveView('osm'));
+  
+  // Global unit selector
+  if (dom.globalUnitSelect) {
+    dom.globalUnitSelect.addEventListener('change', handleGlobalUnitChange);
+  }
+  
+  // Scale and measure mode handlers
+  if (dom.setScaleButton) {
+    dom.setScaleButton.addEventListener('click', startScaleMode);
+  }
+  if (dom.instantSetScaleButton) {
+    dom.instantSetScaleButton.addEventListener('click', startScaleMode);
+  }
+  if (dom.oneTapCalibrateButton) {
+    dom.oneTapCalibrateButton.addEventListener('click', startOneTapMode);
+  }
+  if (dom.measureButton) {
+    dom.measureButton.addEventListener('click', startMeasureMode);
+  }
+  if (dom.clearMeasurementsButton) {
+    dom.clearMeasurementsButton.addEventListener('click', clearAllMeasurements);
+  }
+  
+  setupModalEventHandlers();
 }
 
 function saveSettings() {
@@ -1826,4 +1955,9 @@ export const __testables = {
   handleDistanceModalCancel,
   cacheDom,
   setupEventHandlers,
+  loadPhotoMap,
+  confirmPair,
+  startOneTapMode,
+  handleOneTapClick,
+  handlePhotoClick,
 };
