@@ -250,6 +250,35 @@ function checkScaleDisagreement() {
   }
 }
 
+function updateNoCalibrationStatus() {
+  const minPairs = state.referenceDistance ? 1 : 2;
+  dom.calibrationStatus.textContent = minPairs === 1 
+    ? 'Add at least one reference pair to calibrate the photo.' 
+    : 'Add at least two reference pairs to calibrate the photo.';
+  dom.calibrationBadge.textContent = 'No calibration';
+  dom.calibrationBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700';
+  dom.residualSummary.textContent = '';
+  dom.accuracyDetails.textContent = '';
+}
+
+function updateActiveCalibrationStatus() {
+  const { kind, quality, statusMessage } = state.calibration;
+  dom.calibrationStatus.textContent = statusMessage.message;
+  dom.calibrationBadge.textContent = kind.toUpperCase();
+  const badgeColor = kind === 'homography' ? 'bg-emerald-200 text-emerald-800' : kind === 'affine' ? 'bg-yellow-200 text-yellow-800' : 'bg-orange-200 text-orange-800';
+  dom.calibrationBadge.className = `px-2 py-1 rounded text-xs font-semibold ${badgeColor}`;
+  dom.residualSummary.textContent = `RMSE ${quality.rmse.toFixed(2)} m · Max residual ${quality.maxResidual.toFixed(2)} m`;
+
+  if (state.lastPosition) {
+    const ring = computeAccuracyRing(state.calibration, state.lastPosition.coords.accuracy || 50);
+    if (ring) {
+      dom.accuracyDetails.textContent = `Combined accuracy ${ring.sigmaTotal.toFixed(1)} m (GPS ${ring.sigmaGps.toFixed(1)} m, Map ${ring.sigmaMap.toFixed(1)} m)`;
+    }
+  } else {
+    dom.accuracyDetails.textContent = '';
+  }
+}
+
 function updateStatusText() {
   if (!dom.calibrationStatus) {
     return;
@@ -258,32 +287,11 @@ function updateStatusText() {
   checkScaleDisagreement();
 
   if (!state.calibration || state.calibration.status !== 'ok') {
-    const minPairs = state.referenceDistance ? 1 : 2;
-    dom.calibrationStatus.textContent = minPairs === 1 
-      ? 'Add at least one reference pair to calibrate the photo.' 
-      : 'Add at least two reference pairs to calibrate the photo.';
-    dom.calibrationBadge.textContent = 'No calibration';
-    dom.calibrationBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700';
-    dom.residualSummary.textContent = '';
-    dom.accuracyDetails.textContent = '';
+    updateNoCalibrationStatus();
     return;
   }
 
-    const { kind, quality, statusMessage } = state.calibration;
-  dom.calibrationStatus.textContent = statusMessage.message;
-  dom.calibrationBadge.textContent = kind.toUpperCase();
-  const badgeColor = kind === 'homography' ? 'bg-emerald-200 text-emerald-800' : kind === 'affine' ? 'bg-yellow-200 text-yellow-800' : 'bg-orange-200 text-orange-800';
-  dom.calibrationBadge.className = `px-2 py-1 rounded text-xs font-semibold ${badgeColor}`;
-  dom.residualSummary.textContent = `RMSE ${quality.rmse.toFixed(2)} m · Max residual ${quality.maxResidual.toFixed(2)} m`;
-
-  if (state.lastPosition) {
-      const ring = computeAccuracyRing(state.calibration, state.lastPosition.coords.accuracy || 50);
-    if (ring) {
-      dom.accuracyDetails.textContent = `Combined accuracy ${ring.sigmaTotal.toFixed(1)} m (GPS ${ring.sigmaGps.toFixed(1)} m, Map ${ring.sigmaMap.toFixed(1)} m)`;
-    }
-  } else {
-    dom.accuracyDetails.textContent = '';
-  }
+  updateActiveCalibrationStatus();
 }
 
 function setPhotoImportState(hasImage) {
@@ -1381,23 +1389,15 @@ function clearAllMeasurements() {
   updateMeasureButtonState();
 }
 
-function recalculateCalibration() {
-  const minPairs = state.referenceDistance ? 1 : 2;
-  if (state.pairs.length < minPairs) {
-    state.calibration = null;
-    refreshPairMarkers();
-    updateStatusText();
-    stopGeolocationWatch();
-    updateMeasureButtonState();
-    return;
-  }
+function handleInsufficientPairs() {
+  state.calibration = null;
+  refreshPairMarkers();
+  updateStatusText();
+  stopGeolocationWatch();
+  updateMeasureButtonState();
+}
 
-  const options = {};
-  if (state.referenceDistance && state.referenceDistance.metersPerPixel) {
-    options.referenceScale = state.referenceDistance.metersPerPixel;
-  }
-
-  const result = calibrateMap(state.pairs, options);
+function handleCalibrationResult(result) {
   state.calibration = result.status === 'ok' ? result : null;
 
   if (!state.calibration) {
@@ -1412,6 +1412,22 @@ function recalculateCalibration() {
     updateGpsStatus(msg, false);
     startGeolocationWatch();
   }
+}
+
+function recalculateCalibration() {
+  const minPairs = state.referenceDistance ? 1 : 2;
+  if (state.pairs.length < minPairs) {
+    handleInsufficientPairs();
+    return;
+  }
+
+  const options = {};
+  if (state.referenceDistance && state.referenceDistance.metersPerPixel) {
+    options.referenceScale = state.referenceDistance.metersPerPixel;
+  }
+
+  const result = calibrateMap(state.pairs, options);
+  handleCalibrationResult(result);
 
   renderPairList();
   refreshPairMarkers();
