@@ -258,7 +258,10 @@ function updateStatusText() {
   checkScaleDisagreement();
 
   if (!state.calibration || state.calibration.status !== 'ok') {
-    dom.calibrationStatus.textContent = 'Add at least two reference pairs to calibrate the photo.';
+    const minPairs = state.referenceDistance ? 1 : 2;
+    dom.calibrationStatus.textContent = minPairs === 1 
+      ? 'Add at least one reference pair to calibrate the photo.' 
+      : 'Add at least two reference pairs to calibrate the photo.';
     dom.calibrationBadge.textContent = 'No calibration';
     dom.calibrationBadge.className = 'px-2 py-1 rounded text-xs font-semibold bg-gray-200 text-gray-700';
     dom.residualSummary.textContent = '';
@@ -289,6 +292,9 @@ function setPhotoImportState(hasImage) {
   }
   if (dom.replacePhotoButton) {
     dom.replacePhotoButton.classList.toggle('hidden', !hasImage);
+  }
+  if (!hasImage && dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
   }
 }
 
@@ -552,7 +558,18 @@ function updatePairStatus() {
 }
 
 function beginPairMode() {
+  // Cancel other modes
+  cancelScaleMode();
+  cancelMeasureMode();
+  cancelOneTapMode();
+
   state.activePair = { pixel: null, wgs84: null };
+  
+  // Hide prompts since we are starting a manual pair
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
+
   clearActivePairMarkers();
   updatePairStatus();
   dom.addPairButton.disabled = true;
@@ -633,6 +650,12 @@ function confirmPair() {
     pixel: state.activePair.pixel,
     wgs84: state.activePair.wgs84,
   });
+  
+  // Hide prompts since we now have a pair
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
+  
   cancelPairMode();
   renderPairList();
   refreshPairMarkers();
@@ -656,6 +679,13 @@ function onPairTableClick(event) {
 }
 
 function handlePhotoClick(event) {
+  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+
+  if (state.oneTapMode.active) {
+    handleOneTapClick(pixel);
+    return;
+  }
+
   // Route to scale mode handler first
   if (handleScaleModeClick(event)) {
     return;
@@ -670,7 +700,6 @@ function handlePhotoClick(event) {
   if (!state.activePair) {
     return;
   }
-  const pixel = { x: event.latlng.lng, y: event.latlng.lat };
   state.activePair.pixel = pixel;
   if (state.photoActiveMarker) {
     state.photoActiveMarker.setLatLng(event.latlng);
@@ -957,6 +986,11 @@ function handleDistanceModalConfirm() {
   recalculateCalibration();
   saveSettings();
   showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
+  
+  // Hide prompts since we now have a scale
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
 }
 
 function promptForReferenceDistance() {
@@ -970,6 +1004,7 @@ function startScaleMode() {
   if (state.measureMode.logic.active) {
     cancelMeasureMode();
   }
+  cancelOneTapMode();
   
   state.scaleMode.logic = startScaleModeState(state.scaleMode.logic);
   clearScaleModeMarkers();
@@ -989,6 +1024,57 @@ function cancelScaleMode() {
   if (dom.setScaleButton) {
     dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode.logic);
   }
+}
+
+function startOneTapMode() {
+  if (state.oneTapMode.active) return;
+  
+  // Cancel other modes
+  cancelScaleMode();
+  cancelMeasureMode();
+  cancelActivePair();
+  
+  state.oneTapMode.active = true;
+  if (dom.oneTapCalibrateButton) {
+    dom.oneTapCalibrateButton.classList.add('ring-2', 'ring-white', 'scale-105');
+    dom.oneTapCalibrateButton.textContent = '📍 Tap your location';
+  }
+  
+  showToast('Tap your current location on the photo', { tone: 'info' });
+}
+
+function cancelOneTapMode() {
+  state.oneTapMode.active = false;
+  if (dom.oneTapCalibrateButton) {
+    dom.oneTapCalibrateButton.classList.remove('ring-2', 'ring-white', 'scale-105');
+    dom.oneTapCalibrateButton.textContent = '📍 I am here';
+  }
+}
+
+function handleOneTapClick(pixel) {
+  if (!state.oneTapMode.active) return;
+  
+  cancelOneTapMode();
+  
+  if (!state.lastPosition) {
+    showToast('Waiting for GPS position fix...', { tone: 'warning' });
+    return;
+  }
+  
+  const wgs84 = {
+    lat: state.lastPosition.coords.latitude,
+    lon: state.lastPosition.coords.longitude,
+  };
+  
+  state.pairs.push({ pixel, wgs84 });
+  
+  // Hide prompts since we now have a pair
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
+  
+  recalculateCalibration();
+  showToast('1-point calibration active (North-up)', { tone: 'success' });
 }
 
 function handleScaleModeClick(event) {
@@ -1131,6 +1217,7 @@ function startMeasureMode() {
   if (state.scaleMode.logic.active) {
     cancelScaleMode();
   }
+  cancelOneTapMode();
   
   // If there's a completed measurement, pin it automatically
   if (state.measureMode.logic.active && state.measureMode.logic.step === null) {
@@ -1295,7 +1382,8 @@ function clearAllMeasurements() {
 }
 
 function recalculateCalibration() {
-  if (state.pairs.length < 2) {
+  const minPairs = state.referenceDistance ? 1 : 2;
+  if (state.pairs.length < minPairs) {
     state.calibration = null;
     refreshPairMarkers();
     updateStatusText();
@@ -1320,7 +1408,8 @@ function recalculateCalibration() {
       state.accuracyCircle = null;
     }
   } else {
-    updateGpsStatus('Calibration ready. Live mode active.', false);
+    const msg = (result.statusMessage && result.statusMessage.message) || 'Calibration ready. Live mode active.';
+    updateGpsStatus(msg, false);
     startGeolocationWatch();
   }
 
@@ -1356,6 +1445,11 @@ function loadPhotoMap(dataUrl, width, height) {
   state.photoMap.fitBounds(bounds);
 
   setPhotoImportState(true);
+  
+  // Show instant usage prompts if no scale is set
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.remove('hidden');
+  }
 
   state.imageDataUrl = dataUrl;
   state.imageSize = { width, height };
@@ -1839,4 +1933,9 @@ export const __testables = {
   handleDistanceModalCancel,
   cacheDom,
   setupEventHandlers,
+  loadPhotoMap,
+  confirmPair,
+  startOneTapMode,
+  handleOneTapClick,
+  handlePhotoClick,
 };

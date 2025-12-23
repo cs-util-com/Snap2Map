@@ -9,6 +9,11 @@ describe('Scale and Measure UI integration', () => {
   let handleDistanceModalCancel;
   let cacheDom;
   let setupEventHandlers;
+  let loadPhotoMap;
+  let confirmPair;
+  let startOneTapMode;
+  let handleOneTapClick;
+  let handlePhotoClick;
 
   function setupLeafletMock() {
     const mapMock = {
@@ -78,6 +83,10 @@ describe('Scale and Measure UI integration', () => {
       <button id="setScaleButton"></button>
       <button id="measureButton"></button>
       <button id="clearMeasurementsButton"></button>
+      <div id="instantUsagePrompts" class="hidden">
+        <button id="instantSetScaleButton"></button>
+        <button id="oneTapCalibrateButton"></button>
+      </div>
       <div id="toastContainer"></div>
       <div id="photoView"></div>
       <div id="osmView"></div>
@@ -288,6 +297,52 @@ describe('Scale and Measure UI integration', () => {
       const callArgs = mockLabel.setIcon.mock.calls[0][0];
       expect(callArgs.options.html).toContain('32.81');
       expect(callArgs.options.html).toContain('ft');
+    });
+  });
+
+  describe('Instant Usage', () => {
+    it('shows prompts after photo import', () => {
+      const { loadPhotoMap } = require('./index.js');
+      loadPhotoMap('data:image/png;base64,xxx', 1000, 1000);
+      
+      const prompts = document.getElementById('instantUsagePrompts');
+      expect(prompts.classList.contains('hidden')).toBe(false);
+    });
+
+    it('hides prompts after scale is set', () => {
+      const { handleDistanceModalConfirm } = require('./index.js');
+      state.scaleMode.logic = { active: true, step: 'input', p1: {x:0, y:0}, p2: {x:100, y:0} };
+      document.getElementById('distanceInput').value = '10';
+      
+      handleDistanceModalConfirm();
+      
+      const prompts = document.getElementById('instantUsagePrompts');
+      expect(prompts.classList.contains('hidden')).toBe(true);
+    });
+
+    it('hides prompts after a pair is confirmed', () => {
+      const { confirmPair } = require('./index.js');
+      state.activePair = { pixel: {x:10, y:10}, wgs84: {lat:0, lon:0} };
+      
+      confirmPair();
+      
+      const prompts = document.getElementById('instantUsagePrompts');
+      expect(prompts.classList.contains('hidden')).toBe(true);
+    });
+
+    it('performs one-tap calibration', () => {
+      const { startOneTapMode, handlePhotoClick } = require('./index.js');
+      state.lastPosition = { coords: { latitude: 40, longitude: -105, accuracy: 10 } };
+      
+      startOneTapMode();
+      expect(state.oneTapMode.active).toBe(true);
+      
+      handlePhotoClick({ latlng: { lng: 100, lat: 100 } });
+      
+      expect(state.oneTapMode.active).toBe(false);
+      expect(state.pairs.length).toBe(1);
+      expect(state.pairs[0].pixel).toEqual({ x: 100, y: 100 });
+      expect(state.pairs[0].wgs84).toEqual({ lat: 40, lon: -105 });
     });
   });
 });
