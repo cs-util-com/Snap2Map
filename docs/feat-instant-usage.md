@@ -1,14 +1,13 @@
 # Feature Specification: Instant Usage (0-1 Point Calibration)
 
 ## 1. Overview
-The "Instant Usage" feature aims to provide immediate value to the user after importing a map, even before they have provided the minimum required two GPS reference points. By making sensible assumptions (e.g., North is up, standard floorplan scale), the app can enable the measurement tool and live position tracking earlier in the workflow.
+The "Instant Usage" feature aims to provide immediate value to the user after importing a map, even before they have provided the minimum required two GPS reference points. By making sensible assumptions (perfect top down view and North is up) and only asking the user to provide a reference scale, the app can enable the measurement tool and live position tracking earlier in the workflow.
 
 ## 2. Functional Requirements
 
 ### 2.1 Zero GPS Points
 *   **Measurement Tool**: Enabled if a manual `referenceDistance` (Set Scale) has been provided.
 *   **Live Position**: Disabled.
-*   **Assumptions**: None.
 
 ### 2.2 One GPS Point
 *   **Measurement Tool**: Enabled if a manual `referenceDistance` has been provided.
@@ -24,6 +23,15 @@ The "Instant Usage" feature aims to provide immediate value to the user after im
 ### 2.3 Two+ GPS Points
 *   **Standard Calibration**: Use the existing robust Similarity/Affine/Homography pipeline.
 *   **Scale Harmonization**: If a manual `referenceDistance` is provided, it can be used to constrain the Similarity fit (Phase 2).
+
+### 2.4 Quick Start Flow
+1.  **Import Map**: User selects an image (of a map or floorplan).
+2.  Ask the user to provide a reference scale so that once he did provide that reference scale he can measure any distances on the image
+3.  **Initial Suggestion**: App asks: "Are you on currently on this map? If yes where".
+    1.  **One-Tap Calibration**: If user says yes ask him to tap their current location on the photo.
+    2.  **Immediate Live View**: The app immediately starts showing the live GPS position on the photo using the 1-point fallback.
+    3.  **Refinement**: As the user moves, they can see if the dot follows the map. If not, they add a second point to "pin" the scale and rotation.
+
 
 ## 3. Technical Implementation
 
