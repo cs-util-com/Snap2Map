@@ -1446,12 +1446,10 @@ function loadPhotoMap(dataUrl, width, height) {
 
   setPhotoImportState(true);
   
-  // Show instant usage prompts if no scale is set
-  if (dom.instantUsagePrompts) {
-    console.log('DEBUG: showing prompts');
+  // Show instant usage prompts if no scale is set and no pairs exist
+  if (dom.instantUsagePrompts && state.pairs.length === 0 && !state.referenceDistance) {
+    console.log('DEBUG: removing hidden from prompts');
     dom.instantUsagePrompts.classList.remove('hidden');
-  } else {
-    console.log('DEBUG: dom.instantUsagePrompts is null');
   }
 
   state.imageDataUrl = dataUrl;
