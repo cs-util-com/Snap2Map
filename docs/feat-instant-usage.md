@@ -100,3 +100,23 @@ function calibrateMap(pairs, userOptions = {}) {
 ## 4. Edge Cases & Considerations
 *   **Unstable 2-Point Fit**: If two GPS points are extremely close together, the rotation becomes numerically unstable. In this case, the system should either warn the user or offer to stick to the "North-up" assumption.
 *   **Missing Scale**: If the user provides 1 GPS point but hasn't set a scale yet, the "Live" mode remains disabled until the scale is defined (either because the user later decided to set the reference scale or because he decided to set a second gps reference point).
+
+## 5. Development Progress Notes
+
+### Phase 1: Math & Logic (Completed)
+- **1-Point Similarity**: Implemented `fitSimilarity1Point` in [src/geo/transformations.js](src/geo/transformations.js). It creates a transform from a single point, a fixed scale, and an assumed 0° rotation.
+- **Fixed-Scale Similarity**: Implemented `fitSimilarityFixedScale` to allow 2+ point calibration while constraining the scale to a manual reference value.
+- **Calibrator Update**: Updated `calibrateMap` in [src/calibration/calibrator.js](src/calibration/calibrator.js) to support the 1-point fallback when `referenceScale` is provided.
+
+### Phase 2: UI Integration (Completed)
+- **Quick Start Prompts**: Added a dedicated prompt area in [index.html](index.html) that appears immediately after map import.
+- **One-Tap Calibration**: Implemented `startOneTapMode` and `handleOneTapClick` in [src/index.js](src/index.js). This allows users to "pin" their current GPS location to a spot on the photo with a single tap.
+- **Scale & Measure Modes**: Integrated the state machine from [src/scale/scale-mode.js](src/scale/scale-mode.js) to handle "Set Scale" and "Measure" interactions.
+- **Persistence**: Manual scale and preferred units are now persisted in `localStorage`.
+
+### Phase 3: Quality & Validation (Completed)
+- **Unit Tests**: Added comprehensive tests for 1-point and fixed-scale transformations in [src/geo/transformations.test.js](src/geo/transformations.test.js).
+- **Integration Tests**: Created [src/index.scale.test.js](src/index.scale.test.js) to verify the end-to-end "Instant Usage" flow, including prompt visibility and one-tap calibration.
+- **Complexity Management**: Refactored `updateStatusText`, `recalculateCalibration`, and `setupEventHandlers` in [src/index.js](src/index.js) to keep cyclomatic complexity within limits (<= 10).
+- **Coverage**: Maintained >99% statement coverage across all modified files.
+- **Validation**: Verified all quality checks (`lint`, `check:dup`, `check:cycles`, `check:boundaries`) pass successfully.
