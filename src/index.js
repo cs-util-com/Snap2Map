@@ -1794,69 +1794,34 @@ function cacheDom() {
   dom.distanceConfirmBtn = $('distanceConfirmBtn');
 }
 
-function setupEventHandlers() {
-  dom.mapImageInput.addEventListener('change', handleImageImport);
-  dom.addPairButton.addEventListener('click', beginPairMode);
-  dom.cancelPairButton.addEventListener('click', () => {
-    const wasGuided = isGuidedActive();
-    cancelPairMode();
-    if (wasGuided) {
-      stopGuidedPairing('cancelled');
+function handleGlobalUnitChange(e) {
+  state.preferredUnit = e.target.value;
+  // Refresh visualizations that use the unit
+  drawReferenceVisualization();
+  updateMeasureLabel();
+
+  // Also update all pinned measurement labels
+  state.measureMode.pinned.forEach((item) => {
+    if (item.ui.label) {
+      const sourceIcon = item.source === 'manual' ? '📏' : '📡';
+      item.ui.label.setIcon(L.divIcon({
+        className: 'measure-label',
+        html: createDistanceLabelHtml({
+          meters: item.meters,
+          color: COLORS.MEASURE,
+          icon: sourceIcon,
+          showPin: false,
+          extraClass: 'distance-label--measure',
+        }),
+        iconAnchor: [0, 0],
+      }));
     }
   });
-  dom.confirmPairButton.addEventListener('click', confirmPair);
-  dom.usePositionButton.addEventListener('click', useCurrentPositionForPair);
-  dom.pairTableBody.addEventListener('click', onPairTableClick);
-  dom.photoTabButton.addEventListener('click', () => setActiveView('photo'));
-  dom.osmTabButton.addEventListener('click', () => setActiveView('osm'));
-  
-  // Global unit selector
-  if (dom.globalUnitSelect) {
-    dom.globalUnitSelect.addEventListener('change', (e) => {
-      state.preferredUnit = e.target.value;
-      // Refresh visualizations that use the unit
-      drawReferenceVisualization();
-      updateMeasureLabel();
 
-      // Also update all pinned measurement labels
-      state.measureMode.pinned.forEach((item) => {
-        if (item.ui.label) {
-          const sourceIcon = item.source === 'manual' ? '📏' : '📡';
-          item.ui.label.setIcon(L.divIcon({
-            className: 'measure-label',
-            html: createDistanceLabelHtml({
-              meters: item.meters,
-              color: COLORS.MEASURE,
-              icon: sourceIcon,
-              showPin: false,
-              extraClass: 'distance-label--measure',
-            }),
-            iconAnchor: [0, 0],
-          }));
-        }
-      });
+  saveSettings();
+}
 
-      saveSettings();
-    });
-  }
-  
-  // Scale and measure mode handlers
-  if (dom.setScaleButton) {
-    dom.setScaleButton.addEventListener('click', startScaleMode);
-  }
-  if (dom.instantSetScaleButton) {
-    dom.instantSetScaleButton.addEventListener('click', startScaleMode);
-  }
-  if (dom.oneTapCalibrateButton) {
-    dom.oneTapCalibrateButton.addEventListener('click', startOneTapMode);
-  }
-  if (dom.measureButton) {
-    dom.measureButton.addEventListener('click', startMeasureMode);
-  }
-  if (dom.clearMeasurementsButton) {
-    dom.clearMeasurementsButton.addEventListener('click', clearAllMeasurements);
-  }
-  
+function setupModalEventHandlers() {
   // Distance modal handlers
   if (dom.distanceCancelBtn) {
     dom.distanceCancelBtn.addEventListener('click', handleDistanceModalCancel);
@@ -1887,6 +1852,47 @@ function setupEventHandlers() {
       }
     });
   }
+}
+
+function setupEventHandlers() {
+  dom.mapImageInput.addEventListener('change', handleImageImport);
+  dom.addPairButton.addEventListener('click', beginPairMode);
+  dom.cancelPairButton.addEventListener('click', () => {
+    const wasGuided = isGuidedActive();
+    cancelPairMode();
+    if (wasGuided) {
+      stopGuidedPairing('cancelled');
+    }
+  });
+  dom.confirmPairButton.addEventListener('click', confirmPair);
+  dom.usePositionButton.addEventListener('click', useCurrentPositionForPair);
+  dom.pairTableBody.addEventListener('click', onPairTableClick);
+  dom.photoTabButton.addEventListener('click', () => setActiveView('photo'));
+  dom.osmTabButton.addEventListener('click', () => setActiveView('osm'));
+  
+  // Global unit selector
+  if (dom.globalUnitSelect) {
+    dom.globalUnitSelect.addEventListener('change', handleGlobalUnitChange);
+  }
+  
+  // Scale and measure mode handlers
+  if (dom.setScaleButton) {
+    dom.setScaleButton.addEventListener('click', startScaleMode);
+  }
+  if (dom.instantSetScaleButton) {
+    dom.instantSetScaleButton.addEventListener('click', startScaleMode);
+  }
+  if (dom.oneTapCalibrateButton) {
+    dom.oneTapCalibrateButton.addEventListener('click', startOneTapMode);
+  }
+  if (dom.measureButton) {
+    dom.measureButton.addEventListener('click', startMeasureMode);
+  }
+  if (dom.clearMeasurementsButton) {
+    dom.clearMeasurementsButton.addEventListener('click', clearAllMeasurements);
+  }
+  
+  setupModalEventHandlers();
 }
 
 function saveSettings() {
