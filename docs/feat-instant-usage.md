@@ -11,13 +11,11 @@ The "Instant Usage" feature aims to provide immediate value to the user after im
 
 ### 2.2 One GPS Point
 *   **Measurement Tool**: Enabled if a manual `referenceDistance` has been provided.
-*   **Live Position**: **Enabled** using a fallback calibration.
+*   **Live Position**: **Enabled** if a manual `referenceDistance` has been provided, using a fallback calibration.
 *   **Fallback Calibration (1-Point Similarity)**:
     *   **Translation**: Fixed by the single GPS reference point.
     *   **Rotation**: Assumed to be **0° (North is Up)**.
-    *   **Scale**:
-        1.  Use `referenceDistance.metersPerPixel` if available.
-        2.  Otherwise, use a **Default Scale** (configurable, e.g., 1.0 m/px).
+    *   **Scale**: Use `referenceDistance.metersPerPixel`.
 *   **User Feedback**: Display a banner/toast: *"Using 1-point calibration (North-up). Add a second point to fix orientation and scale."*
 
 ### 2.3 Two+ GPS Points
@@ -77,7 +75,8 @@ Update `calibrateMap` to handle the 1-point case.
 function calibrateMap(pairs, userOptions = {}) {
   // ...
   if (pairs.length === 1) {
-    const scale = userOptions.referenceScale || userOptions.defaultScale || 1.0;
+    const scale = userOptions.referenceScale;
+    if (!scale) return null; // Cannot calibrate 1-point without scale
     const rotation = userOptions.defaultRotation || 0;
     const model = fitSimilarity1Point(enrichedPairs[0], scale, rotation);
     return { ...model, origin, pairs: enrichedPairs };
@@ -95,10 +94,9 @@ function calibrateMap(pairs, userOptions = {}) {
     *   Automatically trigger `calibrateMap()` and enable "Live" mode.
 *   **Fallback Indicator**:
     *   When `state.pairs.length === 1`, show a status badge: "1-Point Calibration (North-up)".
-    *   If no manual scale is set, add: "(Default Scale)".
-*   **Live Button**: Enable when `state.pairs.length >= 1`.
+*   **Live Button**: Enable when `state.pairs.length >= 1` AND a manual scale is set.
 *   **Settings**: Add a "Default Rotation" (default: 0°).
 
 ## 4. Edge Cases & Considerations
 *   **Unstable 2-Point Fit**: If two GPS points are extremely close together, the rotation becomes numerically unstable. In this case, the system should either warn the user or offer to stick to the "North-up" assumption.
-*   **Default Scale Choice**: 1.0 m/px is a safe neutral default, but 0.05 m/px (20 px/m) is better for architectural floorplans. We could auto-detect "Floorplan mode" if the user uses the "Set Scale" tool before adding GPS points.
+*   **Missing Scale**: If the user provides 1 GPS point but hasn't set a scale yet, the "Live" mode remains disabled until the scale is defined (either because the user later decided to set the reference scale or because he decided to set a second gps reference point).
