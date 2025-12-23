@@ -87,9 +87,17 @@ function calibrateMap(pairs, userOptions = {}) {
 ```
 
 ### 3.3 UI Layer (`src/index.js`)
-*   Update the "Live" button logic to enable when `state.pairs.length >= 1`.
-*   Add a UI indicator when in "Fallback Mode" (1 point).
-*   Allow configuration of `defaultScale` in settings (e.g., "Floorplan mode" vs "Map mode").
+*   **Post-Import Prompt**: Immediately after map import (no scale is set yet), display a prominent "Set Scale" button.
+*   **Location Prompt**: In parallel show a button *"Are you currently on this map?"*
+    *   If Clicked, enter **One-Tap Calibration** mode.
+*   **One-Tap Calibration UI**:
+    *   When active, the next tap on the photo captures the current GPS position (waiting for accuracy if needed) and creates a single reference pair.
+    *   Automatically trigger `calibrateMap()` and enable "Live" mode.
+*   **Fallback Indicator**:
+    *   When `state.pairs.length === 1`, show a status badge: "1-Point Calibration (North-up)".
+    *   If no manual scale is set, add: "(Default Scale)".
+*   **Live Button**: Enable when `state.pairs.length >= 1`.
+*   **Settings**: Add a "Default Rotation" (default: 0°).
 
 ## 4. Edge Cases & Considerations
 *   **Unstable 2-Point Fit**: If two GPS points are extremely close together, the rotation becomes numerically unstable. In this case, the system should either warn the user or offer to stick to the "North-up" assumption.
