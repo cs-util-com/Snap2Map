@@ -12,7 +12,6 @@ describe('Scale and Measure UI integration', () => {
   let loadPhotoMap;
   let confirmPair;
   let startOneTapMode;
-  let handleOneTapClick;
   let handlePhotoClick;
 
   function setupLeafletMock() {
@@ -153,7 +152,6 @@ describe('Scale and Measure UI integration', () => {
       loadPhotoMap,
       confirmPair,
       startOneTapMode,
-      handleOneTapClick,
       handlePhotoClick
     } = indexModule.__testables);
     
