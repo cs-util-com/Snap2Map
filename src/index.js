@@ -77,6 +77,8 @@ const state = {
   referenceDistance: null,
   // User's preferred display unit for distances: 'm' | 'ft' | 'ft-in'
   preferredUnit: 'm',
+  // Default rotation for 1-point calibration (in degrees)
+  defaultRotation: 0,
   // Scale mode: setting the reference distance line
   scaleMode: {
     logic: createScaleModeState(),
@@ -288,10 +290,37 @@ function updateStatusText() {
 
   if (!state.calibration || state.calibration.status !== 'ok') {
     updateNoCalibrationStatus();
+  } else {
+    updateActiveCalibrationStatus();
+  }
+
+  updateInstantUsagePromptsVisibility();
+}
+
+function updateInstantUsagePromptsVisibility() {
+  if (!dom.instantUsagePrompts) return;
+
+  const hasScale = !!(state.referenceDistance && state.referenceDistance.metersPerPixel);
+  const hasPairs = state.pairs.length > 0;
+  const hasTwoPairs = state.pairs.length >= 2;
+
+  if (hasTwoPairs || (hasPairs && hasScale)) {
+    dom.instantUsagePrompts.classList.add('hidden');
     return;
   }
 
-  updateActiveCalibrationStatus();
+  if (state.imageDataUrl) {
+    dom.instantUsagePrompts.classList.remove('hidden');
+    
+    if (dom.instantSetScaleButton) {
+      dom.instantSetScaleButton.classList.toggle('hidden', hasScale);
+    }
+    if (dom.oneTapCalibrateButton) {
+      dom.oneTapCalibrateButton.classList.toggle('hidden', hasPairs);
+    }
+  } else {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
 }
 
 function setPhotoImportState(hasImage) {
@@ -659,11 +688,6 @@ function confirmPair() {
     wgs84: state.activePair.wgs84,
   });
   
-  // Hide prompts since we now have a pair
-  if (dom.instantUsagePrompts) {
-    dom.instantUsagePrompts.classList.add('hidden');
-  }
-  
   cancelPairMode();
   renderPairList();
   refreshPairMarkers();
@@ -993,11 +1017,11 @@ function handleDistanceModalConfirm() {
   drawReferenceVisualization();
   recalculateCalibration();
   saveSettings();
-  showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
   
-  // Hide prompts since we now have a scale
-  if (dom.instantUsagePrompts) {
-    dom.instantUsagePrompts.classList.add('hidden');
+  if (state.pairs.length === 1) {
+    showToast('1-point calibration active (North-up). Add a second point to fix orientation and scale.', { tone: 'success', duration: 6000 });
+  } else {
+    showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
   }
 }
 
@@ -1062,27 +1086,49 @@ function cancelOneTapMode() {
 function handleOneTapClick(pixel) {
   if (!state.oneTapMode.active) return;
   
-  cancelOneTapMode();
-  
-  if (!state.lastPosition) {
-    showToast('Waiting for GPS position fix...', { tone: 'warning' });
+  if (!navigator.geolocation) {
+    showToast('Geolocation is not supported.', { tone: 'warning' });
+    cancelOneTapMode();
     return;
   }
+
+  showToast('Capturing your GPS position...', { duration: 3000 });
   
-  const wgs84 = {
-    lat: state.lastPosition.coords.latitude,
-    lon: state.lastPosition.coords.longitude,
-  };
-  
-  state.pairs.push({ pixel, wgs84 });
-  
-  // Hide prompts since we now have a pair
-  if (dom.instantUsagePrompts) {
-    dom.instantUsagePrompts.classList.add('hidden');
-  }
-  
-  recalculateCalibration();
-  showToast('1-point calibration active (North-up)', { tone: 'success' });
+  // We use getCurrentPosition to ensure we get a fresh fix for this specific tap
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      if (!state.oneTapMode.active) return;
+      
+      state.lastPosition = position;
+      state.lastGpsUpdate = Date.now();
+      
+      const wgs84 = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+      };
+      
+      state.pairs.push({ pixel, wgs84 });
+      
+      cancelOneTapMode();
+      recalculateCalibration();
+      
+      if (state.referenceDistance) {
+        showToast('1-point calibration active (North-up). Add a second point to fix orientation and scale.', { tone: 'success', duration: 6000 });
+      } else {
+        showToast('Position pinned. Now set the scale to enable live view.', { duration: 5000 });
+      }
+    },
+    (error) => {
+      console.error('One-tap geolocation error:', error);
+      showToast(`Failed to get position: ${error.message}`, { tone: 'warning' });
+      cancelOneTapMode();
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    }
+  );
 }
 
 function handleScaleModeClick(event) {
@@ -1421,7 +1467,9 @@ function recalculateCalibration() {
     return;
   }
 
-  const options = {};
+  const options = {
+    defaultRotation: (state.defaultRotation * Math.PI) / 180,
+  };
   if (state.referenceDistance && state.referenceDistance.metersPerPixel) {
     options.referenceScale = state.referenceDistance.metersPerPixel;
   }
@@ -1461,11 +1509,6 @@ function loadPhotoMap(dataUrl, width, height) {
   state.photoMap.fitBounds(bounds);
 
   setPhotoImportState(true);
-  
-  // Show instant usage prompts if no scale is set and no pairs exist
-  if (dom.instantUsagePrompts && state.pairs.length === 0 && !state.referenceDistance) {
-    dom.instantUsagePrompts.classList.remove('hidden');
-  }
 
   state.imageDataUrl = dataUrl;
   state.imageSize = { width, height };
@@ -1778,6 +1821,7 @@ function cacheDom() {
   dom.replacePhotoButton = $('replacePhotoButton');
   // Global unit selector
   dom.globalUnitSelect = $('globalUnitSelect');
+  dom.defaultRotationSelect = $('defaultRotationSelect');
   // Scale and measure mode buttons
   dom.setScaleButton = $('setScaleButton');
   dom.measureButton = $('measureButton');
@@ -1819,6 +1863,14 @@ function handleGlobalUnitChange(e) {
   });
 
   saveSettings();
+}
+
+function handleDefaultRotationChange(e) {
+  state.defaultRotation = parseFloat(e.target.value);
+  saveSettings();
+  if (state.pairs.length === 1) {
+    recalculateCalibration();
+  }
 }
 
 function setupModalEventHandlers() {
@@ -1875,6 +1927,10 @@ function setupEventHandlers() {
     dom.globalUnitSelect.addEventListener('change', handleGlobalUnitChange);
   }
   
+  if (dom.defaultRotationSelect) {
+    dom.defaultRotationSelect.addEventListener('change', handleDefaultRotationChange);
+  }
+  
   // Scale and measure mode handlers
   if (dom.setScaleButton) {
     dom.setScaleButton.addEventListener('click', startScaleMode);
@@ -1898,6 +1954,7 @@ function setupEventHandlers() {
 function saveSettings() {
   try {
     localStorage.setItem('snap2map_preferredUnit', state.preferredUnit);
+    localStorage.setItem('snap2map_defaultRotation', state.defaultRotation.toString());
     if (state.referenceDistance) {
       localStorage.setItem('snap2map_referenceDistance', JSON.stringify(state.referenceDistance));
     } else {
@@ -1917,10 +1974,19 @@ function loadSettings() {
         dom.globalUnitSelect.value = unit;
       }
     }
+
+    const rotation = localStorage.getItem('snap2map_defaultRotation');
+    if (rotation) {
+      state.defaultRotation = parseFloat(rotation);
+      if (dom.defaultRotationSelect) {
+        dom.defaultRotationSelect.value = rotation;
+      }
+    }
     
     const refDist = localStorage.getItem('snap2map_referenceDistance');
     if (refDist) {
       state.referenceDistance = JSON.parse(refDist);
+      drawReferenceVisualization();
     }
   } catch (e) {
     console.warn('Failed to load settings', e);
@@ -1960,4 +2026,5 @@ export const __testables = {
   startOneTapMode,
   handleOneTapClick,
   handlePhotoClick,
+  updateStatusText,
 };

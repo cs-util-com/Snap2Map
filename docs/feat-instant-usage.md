@@ -120,3 +120,10 @@ function calibrateMap(pairs, userOptions = {}) {
 - **Complexity Management**: Refactored `updateStatusText`, `recalculateCalibration`, and `setupEventHandlers` in [src/index.js](src/index.js) to keep cyclomatic complexity within limits (<= 10).
 - **Coverage**: Maintained >99% statement coverage across all modified files.
 - **Validation**: Verified all quality checks (`lint`, `check:dup`, `check:cycles`, `check:boundaries`) pass successfully.
+
+### Phase 4: Expert Review & Refinement (Completed)
+- **Robust One-Tap Calibration**: Improved `handleOneTapClick` to explicitly wait for a fresh GPS fix using `getCurrentPosition`, ensuring accuracy even if the background watch hasn't updated yet.
+- **Intelligent Prompt Visibility**: Refactored visibility logic into `updateInstantUsagePromptsVisibility`. Prompts now stay visible until a valid 1-point or 2-point calibration is fully active (e.g., "Set Scale" stays visible if only a GPS point was added).
+- **Default Rotation Setting**: Added a UI selector and persistence for "Default Rotation", allowing 1-point calibration to work for maps that are not North-up.
+- **Enhanced Feedback**: Added the required instructional toast messages for 1-point calibration states to guide the user toward adding a second point.
+- **Persistence**: Extended `localStorage` sync to include the new rotation setting.

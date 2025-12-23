@@ -13,6 +13,7 @@ describe('Scale and Measure UI integration', () => {
   let confirmPair;
   let startOneTapMode;
   let handlePhotoClick;
+  let updateStatusText;
 
   function setupLeafletMock() {
     const mapMock = {
@@ -55,6 +56,14 @@ describe('Scale and Measure UI integration', () => {
       })),
       CRS: { Simple: {} },
       DomEvent: { stopPropagation: jest.fn(), on: jest.fn() },
+    };
+
+    global.navigator.geolocation = {
+      getCurrentPosition: jest.fn((success) => success({
+        coords: { latitude: 40, longitude: -105, accuracy: 10 }
+      })),
+      watchPosition: jest.fn(),
+      clearWatch: jest.fn(),
     };
   }
 
@@ -152,7 +161,8 @@ describe('Scale and Measure UI integration', () => {
       loadPhotoMap,
       confirmPair,
       startOneTapMode,
-      handlePhotoClick
+      handlePhotoClick,
+      updateStatusText
     } = indexModule.__testables);
     
     // Initialize DOM references and maps
@@ -305,20 +315,18 @@ describe('Scale and Measure UI integration', () => {
 
   describe('Instant Usage', () => {
     it('shows prompts after photo import', () => {
+      state.imageDataUrl = 'data:image/png;base64,xxx';
       state.pairs = [];
       state.referenceDistance = null;
-      loadPhotoMap('data:image/png;base64,xxx', 1000, 1000);
+      
+      updateStatusText();
       
       const prompts = document.getElementById('instantUsagePrompts');
-      // Manually trigger the class removal in the test environment to verify the logic path
-      // was reached (since we verified it with logs earlier).
-      if (state.pairs.length === 0 && !state.referenceDistance) {
-        prompts.classList.remove('hidden');
-      }
       expect(prompts.classList.contains('hidden')).toBe(false);
     });
 
-    it('hides prompts after scale is set', () => {
+    it('hides prompts after scale is set and 1 pair exists', () => {
+      state.pairs = [{ pixel: {x:10, y:10}, wgs84: {lat:0, lon:0} }];
       state.scaleMode.logic = { active: true, step: 'input', p1: {x:0, y:0}, p2: {x:100, y:0} };
       document.getElementById('distanceInput').value = '10';
       
@@ -328,7 +336,8 @@ describe('Scale and Measure UI integration', () => {
       expect(prompts.classList.contains('hidden')).toBe(true);
     });
 
-    it('hides prompts after a pair is confirmed', () => {
+    it('hides prompts after a pair is confirmed if scale exists', () => {
+      state.referenceDistance = { metersPerPixel: 1.0 };
       state.activePair = { pixel: {x:10, y:10}, wgs84: {lat:0, lon:0} };
       
       confirmPair();
@@ -337,9 +346,23 @@ describe('Scale and Measure UI integration', () => {
       expect(prompts.classList.contains('hidden')).toBe(true);
     });
 
-    it('performs one-tap calibration', () => {
-      state.lastPosition = { coords: { latitude: 40, longitude: -105, accuracy: 10 } };
+    it('shows Set Scale button but hides I am here button after 1 pair is added without scale', () => {
+      state.imageDataUrl = 'data:image/png;base64,xxx';
+      state.pairs = [{ pixel: {x:10, y:10}, wgs84: {lat:0, lon:0} }];
+      state.referenceDistance = null;
       
+      updateStatusText();
+      
+      const prompts = document.getElementById('instantUsagePrompts');
+      const setScaleBtn = document.getElementById('instantSetScaleButton');
+      const oneTapBtn = document.getElementById('oneTapCalibrateButton');
+      
+      expect(prompts.classList.contains('hidden')).toBe(false);
+      expect(setScaleBtn.classList.contains('hidden')).toBe(false);
+      expect(oneTapBtn.classList.contains('hidden')).toBe(true);
+    });
+
+    it('performs one-tap calibration', () => {
       startOneTapMode();
       expect(state.oneTapMode.active).toBe(true);
       
