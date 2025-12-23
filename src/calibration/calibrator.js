@@ -279,7 +279,7 @@ export function accuracyRingRadiusPixels(calibration, location, gpsAccuracy) {
   const ring = computeAccuracyRing(calibration, gpsAccuracy);
   return {
     ...ring,
-    pixelRadius: ring ? ring.sigmaTotal / metersPerPixel : null,
+    pixelRadius: ring.sigmaTotal / metersPerPixel,
   };
 }
 

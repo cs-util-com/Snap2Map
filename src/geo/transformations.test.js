@@ -170,11 +170,84 @@ describe('transformations', () => {
       ],
     };
     expect(applyTransform(homography, { x: 1, y: 0 })).toBeNull();
+    expect(applyTransform(null, { x: 0, y: 0 })).toBeNull();
     expect(() => applyTransform({ type: 'unknown' }, { x: 0, y: 0 })).toThrow('Unsupported transform type');
     expect(applyInverseTransform(null, { x: 0, y: 0 })).toBeNull();
+    expect(() => applyInverseTransform({ type: 'unknown' }, { x: 0, y: 0 })).toThrow('Unsupported transform type');
     expect(invertAffine({ type: 'affine', matrix: [[1, 2, 0], [2, 4, 0]] })).toBeNull();
+    expect(invertHomography({ type: 'homography', matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]] })).toBeNull();
     expect(jacobianForTransform({ type: 'unsupported' }, { x: 0, y: 0 })).toBeNull();
     expect(averageScaleFromJacobian(null)).toBeNull();
+  });
+
+  test('jacobianForTransform covers affine and homography', () => {
+    const affine = {
+      type: 'affine',
+      matrix: [
+        [2, 1, 5],
+        [0.5, 3, -2],
+      ],
+    };
+    const jAffine = jacobianForTransform(affine, { x: 10, y: 20 });
+    expect(jAffine).toEqual([
+      [2, 1],
+      [0.5, 3],
+    ]);
+
+    const homography = {
+      type: 'homography',
+      matrix: [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ],
+    };
+    const jHomo = jacobianForTransform(homography, { x: 5, y: 5 });
+    expect(jHomo[0][0]).toBeCloseTo(1);
+    expect(jHomo[1][1]).toBeCloseTo(1);
+
+    const singularHomo = {
+      type: 'homography',
+      matrix: [
+        [1, 0, 0],
+        [0, 1, 0],
+        [1, 0, -10],
+      ],
+    };
+    expect(jacobianForTransform(singularHomo, { x: 10, y: 0 })).toBeNull();
+  });
+
+  test('fitHomography handles degenerate cases', () => {
+    // 4 points on a line
+    const degeneratePairs = [
+      { pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } },
+      { pixel: { x: 1, y: 0 }, enu: { x: 1, y: 0 } },
+      { pixel: { x: 2, y: 0 }, enu: { x: 2, y: 0 } },
+      { pixel: { x: 3, y: 0 }, enu: { x: 3, y: 0 } },
+    ];
+    expect(fitHomography(degeneratePairs)).toBeNull();
+  });
+
+  test('applyInverseTransform covers all types', () => {
+    const similarity = {
+      type: 'similarity',
+      scale: 2,
+      cos: 1,
+      sin: 0,
+      rotation: 0,
+      translation: { x: 10, y: 20 },
+    };
+    expect(applyInverseTransform(similarity, { x: 20, y: 30 })).toEqual({ x: 5, y: 5 });
+
+    const homography = {
+      type: 'homography',
+      matrix: [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ],
+    };
+    expect(applyInverseTransform(homography, { x: 5, y: 5 })).toEqual({ x: 5, y: 5 });
   });
 
   describe('fitSimilarityFixedScale', () => {
