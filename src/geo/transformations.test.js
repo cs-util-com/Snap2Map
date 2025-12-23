@@ -1,6 +1,7 @@
 import {
   fitSimilarity,
   fitSimilarityFixedScale,
+  fitSimilarity1Point,
   fitAffine,
   fitHomography,
   applyTransform,
@@ -103,6 +104,29 @@ describe('transformations', () => {
     const roundTrip = applyTransform(inverse, mapped);
     expect(roundTrip.x).toBeCloseTo(point.x, 5);
     expect(roundTrip.y).toBeCloseTo(point.y, 5);
+  });
+
+  test('fitSimilarity1Point creates valid transform from single point', () => {
+    const pair = { pixel: { x: 10, y: 20 }, enu: { x: 100, y: 200 } };
+    const scale = 2.5;
+    const rotation = Math.PI / 4; // 45 degrees
+    const transform = fitSimilarity1Point(pair, scale, rotation);
+
+    expect(transform.type).toBe('similarity');
+    expect(transform.scale).toBe(scale);
+    expect(transform.rotation).toBe(rotation);
+
+    const projected = applyTransform(transform, pair.pixel);
+    expect(projected.x).toBeCloseTo(pair.enu.x);
+    expect(projected.y).toBeCloseTo(pair.enu.y);
+  });
+
+  test('fitSimilarity1Point returns null for invalid inputs', () => {
+    expect(fitSimilarity1Point(null, 1, 0)).toBeNull();
+    expect(fitSimilarity1Point({ pixel: { x: 0, y: 0 } }, 1, 0)).toBeNull();
+    expect(fitSimilarity1Point({ pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } }, -1, 0)).toBeNull();
+    expect(fitSimilarity1Point({ pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } }, 0, 0)).toBeNull();
+    expect(fitSimilarity1Point({ pixel: { x: 0, y: 0 }, enu: { x: 0, y: 0 } }, NaN, 0)).toBeNull();
   });
 
   test('invertSimilarity and invertAffine expose consistent parameters', () => {

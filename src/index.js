@@ -104,6 +104,10 @@ const state = {
     },
     pinned: [], // Array of { p1, p2, meters, source, ui: { marker1, marker2, line, label } }
   },
+  // One-tap calibration mode (Phase 3 feature)
+  oneTapMode: {
+    active: false,
+  },
 };
 
 const dom = {};
@@ -1668,6 +1672,9 @@ function cacheDom() {
   dom.setScaleButton = $('setScaleButton');
   dom.measureButton = $('measureButton');
   dom.clearMeasurementsButton = $('clearMeasurementsButton');
+  dom.instantUsagePrompts = $('instantUsagePrompts');
+  dom.instantSetScaleButton = $('instantSetScaleButton');
+  dom.oneTapCalibrateButton = $('oneTapCalibrateButton');
   // Distance input modal
   dom.distanceModal = $('distanceModal');
   dom.distanceInput = $('distanceInput');
@@ -1726,6 +1733,12 @@ function setupEventHandlers() {
   // Scale and measure mode handlers
   if (dom.setScaleButton) {
     dom.setScaleButton.addEventListener('click', startScaleMode);
+  }
+  if (dom.instantSetScaleButton) {
+    dom.instantSetScaleButton.addEventListener('click', startScaleMode);
+  }
+  if (dom.oneTapCalibrateButton) {
+    dom.oneTapCalibrateButton.addEventListener('click', startOneTapMode);
   }
   if (dom.measureButton) {
     dom.measureButton.addEventListener('click', startMeasureMode);
