@@ -312,6 +312,8 @@ describe('Scale and Measure UI integration', () => {
       loadPhotoMap('data:image/png;base64,xxx', 1000, 1000);
       
       const prompts = document.getElementById('instantUsagePrompts');
+      // In the test environment, we might need to manually trigger the DOM update 
+      // if the mock doesn't behave exactly like a real browser
       expect(prompts.classList.contains('hidden')).toBe(false);
     });
 
