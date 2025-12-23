@@ -43,13 +43,24 @@
           <p class="text-slate-300 text-sm leading-relaxed lg:text-base">
             Photograph any trailboard or printed map, drop a few reference pairs, and watch your live GPS position glide across the photo. Works offline, with OpenStreetMap context when you are connected.
           </p>
-          <div class="flex items-center gap-3 pt-2">
-            <label for="globalUnitSelect" class="text-xs font-semibold uppercase tracking-wider text-slate-500">Display Unit</label>
-            <select id="globalUnitSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-              <option value="m">Meters (m)</option>
-              <option value="ft">Feet (ft)</option>
-              <option value="ft-in">Feet & Inches (ft-in)</option>
-            </select>
+          <div class="flex flex-wrap items-center gap-6 pt-2">
+            <div class="flex items-center gap-3">
+              <label for="globalUnitSelect" class="text-xs font-semibold uppercase tracking-wider text-slate-500">Display Unit</label>
+              <select id="globalUnitSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <option value="m">Meters (m)</option>
+                <option value="ft">Feet (ft)</option>
+                <option value="ft-in">Feet & Inches (ft-in)</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-3">
+              <label for="defaultRotationSelect" class="text-xs font-semibold uppercase tracking-wider text-slate-500">Default Rotation</label>
+              <select id="defaultRotationSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <option value="0">North is Up (0°)</option>
+                <option value="90">East is Up (90°)</option>
+                <option value="180">South is Up (180°)</option>
+                <option value="270">West is Up (270°)</option>
+              </select>
+            </div>
           </div>
         </header>
       </div>
