@@ -24,9 +24,9 @@ The "Instant Usage" feature aims to provide immediate value to the user after im
 
 ### 2.4 Quick Start Flow
 1.  **Import Map**: User selects an image (of a map or floorplan).
-2.  Ask the user to provide a reference scale so that once he did provide that reference scale he can measure any distances on the image
-3.  **Initial Suggestion**: App asks: "Are you on currently on this map? If yes where".
-    1.  **One-Tap Calibration**: If user says yes ask him to tap their current location on the photo.
+2.  Ask the user to provide a reference scale, which will enable distance measurement on the image.
+3.  **Initial Suggestion**: App asks: "Are you currently on this map? If so, where?".
+    1.  **One-Tap Calibration**: If the user says yes, ask them to tap their current location on the photo.
     2.  **Immediate Live View**: The app immediately starts showing the live GPS position on the photo using the 1-point fallback.
     3.  **Refinement**: As the user moves, they can see if the dot follows the map. If not, they add a second point to "pin" the scale and rotation.
 
