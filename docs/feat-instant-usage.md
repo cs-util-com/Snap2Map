@@ -33,7 +33,7 @@ The "Instant Usage" feature aims to provide immediate value to the user after im
 
 ## 3. Technical Implementation
 
-### 3.1 Math Layer (`src/geo/transformations.js`)
+### 3.1 Math Layer ([src/geo/transformations.js](src/geo/transformations.js))
 Implement `fitSimilarity1Point(pair, scale, rotation)` which returns a standard transform object.
 
 ```javascript
@@ -44,48 +44,77 @@ Implement `fitSimilarity1Point(pair, scale, rotation)` which returns a standard 
  * @param {number} [rotation=0] - Rotation in radians (0 = North is Up)
  */
 export function fitSimilarity1Point(pair, scale, rotation = 0) {
+  if (!pair || !pair.pixel || !pair.enu || !Number.isFinite(scale) || scale <= 0) {
+    return null;
+  }
+
   const cos = Math.cos(rotation);
   const sin = Math.sin(rotation);
 
-  // Matrix: [m00, m01, m10, m11, tx, ty]
-  // enu.x = m00 * px + m10 * py + tx
-  // enu.y = m01 * px + m11 * py + ty
-  const m00 = scale * cos;
-  const m01 = scale * sin;
-  const m10 = -scale * sin;
-  const m11 = scale * cos;
-
-  const tx = pair.enu.x - (m00 * pair.pixel.x + m10 * pair.pixel.y);
-  const ty = pair.enu.y - (m01 * pair.pixel.x + m11 * pair.pixel.y);
+  const tx = pair.enu.x - scale * (cos * pair.pixel.x - sin * pair.pixel.y);
+  const ty = pair.enu.y - scale * (sin * pair.pixel.x + cos * pair.pixel.y);
 
   return {
-    matrix: [m00, m01, m10, m11, tx, ty],
-    kind: 'similarity',
-    rmse: 0,
-    maxResidual: 0,
-    inliers: [pair],
+    type: 'similarity',
+    scale,
+    rotation,
+    cos,
+    sin,
+    translation: { x: tx, y: ty },
   };
 }
 ```
 
-### 3.2 Calibration Layer (`src/calibration/calibrator.js`)
-Update `calibrateMap` to handle the 1-point case.
+### 3.2 Calibration Layer ([src/calibration/calibrator.js](src/calibration/calibrator.js))
+Update `calibrateMap` to handle the 1-point case using a helper function.
 
 ```javascript
-function calibrateMap(pairs, userOptions = {}) {
+function calibrate1Point(enrichedPairs, origin, referenceScale, userOptions) {
+  if (!referenceScale) {
+    return {
+      status: 'insufficient-pairs',
+      message: 'A reference scale is required for 1-point calibration.',
+    };
+  }
+  const rotation = userOptions.defaultRotation || 0;
+  const model = fitSimilarity1Point(enrichedPairs[0], referenceScale, rotation);
+  if (!model) {
+    return {
+      status: 'fit-failed',
+      message: '1-point calibration failed.',
+    };
+  }
+  return {
+    status: 'ok',
+    origin,
+    kind: 'similarity',
+    model,
+    metrics: {
+      rmse: 0,
+      maxResidual: 0,
+      inliers: enrichedPairs,
+      residuals: [0],
+    },
+    quality: {
+      rmse: 0,
+      maxResidual: 0,
+    },
+    statusMessage: { level: 'low', message: '1-point calibration (North-up). Add a second point to fix orientation and scale.' },
+    residuals: [0],
+    inliers: enrichedPairs,
+  };
+}
+
+export function calibrateMap(pairs, userOptions = {}) {
   // ...
-  if (pairs.length === 1) {
-    const scale = userOptions.referenceScale;
-    if (!scale) return null; // Cannot calibrate 1-point without scale
-    const rotation = userOptions.defaultRotation || 0;
-    const model = fitSimilarity1Point(enrichedPairs[0], scale, rotation);
-    return { ...model, origin, pairs: enrichedPairs };
+  if (enrichedPairs.length === 1) {
+    return calibrate1Point(enrichedPairs, origin, referenceScale, userOptions);
   }
   // ...
 }
 ```
 
-### 3.3 UI Layer (`src/index.js`)
+### 3.3 UI Layer ([src/index.js](src/index.js))
 *   **Post-Import Prompt**: Immediately after map import (no scale is set yet), display a prominent "Set Scale" button.
 *   **Location Prompt**: In parallel show a button *"Are you currently on this map?"*
     *   If Clicked, enter **One-Tap Calibration** mode.
