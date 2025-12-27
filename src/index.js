@@ -297,6 +297,18 @@ function updateStatusText() {
   updateInstantUsagePromptsVisibility();
 }
 
+function hideInstantUsagePrompts() {
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.add('hidden');
+  }
+}
+
+function showInstantUsagePrompts() {
+  if (dom.instantUsagePrompts) {
+    dom.instantUsagePrompts.classList.remove('hidden');
+  }
+}
+
 function updateInstantUsagePromptsVisibility() {
   if (!dom.instantUsagePrompts) return;
 
@@ -305,12 +317,12 @@ function updateInstantUsagePromptsVisibility() {
   const hasTwoPairs = state.pairs.length >= 2;
 
   if (hasTwoPairs || (hasPairs && hasScale)) {
-    dom.instantUsagePrompts.classList.add('hidden');
+    hideInstantUsagePrompts();
     return;
   }
 
   if (state.imageDataUrl) {
-    dom.instantUsagePrompts.classList.remove('hidden');
+    showInstantUsagePrompts();
     
     if (dom.instantSetScaleButton) {
       dom.instantSetScaleButton.classList.toggle('hidden', hasScale);
@@ -319,7 +331,7 @@ function updateInstantUsagePromptsVisibility() {
       dom.oneTapCalibrateButton.classList.toggle('hidden', hasPairs);
     }
   } else {
-    dom.instantUsagePrompts.classList.add('hidden');
+    hideInstantUsagePrompts();
   }
 }
 
@@ -330,8 +342,8 @@ function setPhotoImportState(hasImage) {
   if (dom.replacePhotoButton) {
     dom.replacePhotoButton.classList.toggle('hidden', !hasImage);
   }
-  if (!hasImage && dom.instantUsagePrompts) {
-    dom.instantUsagePrompts.classList.add('hidden');
+  if (!hasImage) {
+    hideInstantUsagePrompts();
   }
 }
 
@@ -603,9 +615,7 @@ function beginPairMode() {
   state.activePair = { pixel: null, wgs84: null };
   
   // Hide prompts since we are starting a manual pair
-  if (dom.instantUsagePrompts) {
-    dom.instantUsagePrompts.classList.add('hidden');
-  }
+  hideInstantUsagePrompts();
 
   clearActivePairMarkers();
   updatePairStatus();
