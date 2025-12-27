@@ -378,11 +378,10 @@ describe('scale module', () => {
 
       test('handles rounding to 12 inches', () => {
         // Edge case: when inches rounds to 12, should become next foot
-        // 0.6096m = 2ft exactly, but 0.6090m rounds to 2'0"
+        // 0.6096m = 2ft exactly, but 0.6090m rounds to 2' 0"
         const almostTwoFeet = 0.6090; // Just under 2 feet
         const result = formatDistance(almostTwoFeet, 'ft-in');
-        // Should be close to 2' 0"
-        expect(result).toMatch(/[12]' \d+"/);
+        expect(result).toBe("2' 0\"");
       });
     });
 
