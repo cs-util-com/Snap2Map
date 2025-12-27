@@ -320,6 +320,10 @@ describe('scale module', () => {
       expect(convertToMeters(10, 'ft')).toBe(10 / METERS_TO_FEET);
     });
 
+    test('converts feet-inches (decimal feet) to meters', () => {
+      expect(convertToMeters(10, 'ft-in')).toBe(10 / METERS_TO_FEET);
+    });
+
     test('returns null for non-finite values', () => {
       expect(convertToMeters(NaN, 'm')).toBeNull();
       expect(convertToMeters(Infinity, 'm')).toBeNull();

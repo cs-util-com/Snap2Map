@@ -178,7 +178,7 @@ export function measureDistance(p1, p2, metersPerPixel) {
  * Validates that the input is a positive finite number.
  * 
  * @param {number} value - Numeric distance value
- * @param {string} unit - Unit of the input value ('m', 'ft')
+ * @param {string} unit - Unit of the input value ('m', 'ft', 'ft-in')
  * @returns {number|null} - Distance in meters, or null if invalid
  */
 export function convertToMeters(value, unit) {
@@ -187,6 +187,7 @@ export function convertToMeters(value, unit) {
   }
   switch (unit) {
     case 'ft':
+    case 'ft-in': // Assume decimal feet are entered for 'ft-in'
       return value / METERS_TO_FEET;
     default:
       return value;
