@@ -1747,7 +1747,7 @@ function handleGeolocationPermission(shouldPrompt, doRequest) {
     .query({ name: 'geolocation' })
     .then((status) => {
       if (status.state === 'granted') {
-        requestAndCenterOsmOnUser();
+        doRequest();
       } else if (status.state === 'prompt' && shouldPrompt) {
         doRequest();
       }
