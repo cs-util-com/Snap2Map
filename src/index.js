@@ -885,13 +885,40 @@ function drawReferenceVisualization() {
   
   state.referenceMarkers.marker1 = L.marker(latlng1, {
     icon: createScaleMarkerIcon(COLORS.REFERENCE),
-    draggable: false,
+    draggable: true,
   }).addTo(state.photoMap);
   
   state.referenceMarkers.marker2 = L.marker(latlng2, {
     icon: createScaleMarkerIcon(COLORS.REFERENCE),
-    draggable: false,
+    draggable: true,
   }).addTo(state.photoMap);
+
+  const updateRef = () => {
+    const l1 = state.referenceMarkers.marker1.getLatLng();
+    const l2 = state.referenceMarkers.marker2.getLatLng();
+    
+    state.referenceDistance.p1 = { x: l1.lng, y: l1.lat };
+    state.referenceDistance.p2 = { x: l2.lng, y: l2.lat };
+    
+    // Recompute metersPerPixel
+    const dist = Math.hypot(l1.lng - l2.lng, l1.lat - l2.lat);
+    if (dist > 0) {
+      state.referenceDistance.metersPerPixel = state.referenceDistance.meters / dist;
+    }
+    
+    if (state.referenceMarkers.line) {
+      state.referenceMarkers.line.setLatLngs([l1, l2]);
+    }
+    if (state.referenceMarkers.label) {
+      state.referenceMarkers.label.setLatLng(L.latLng((l1.lat + l2.lat) / 2, (l1.lng + l2.lng) / 2));
+    }
+    
+    recalculateCalibration();
+    saveSettings();
+  };
+
+  state.referenceMarkers.marker1.on('drag', updateRef);
+  state.referenceMarkers.marker2.on('drag', updateRef);
   
   state.referenceMarkers.line = L.polyline([latlng1, latlng2], {
     color: COLORS.REFERENCE,
@@ -1163,13 +1190,25 @@ function handleScaleModeClick(event) {
   
   // Update logical state
   state.scaleMode.logic = newState;
+
+  const createDragHandler = (marker, pointId) => {
+    marker.on('drag', () => {
+      const latlng = marker.getLatLng();
+      state.scaleMode.logic[pointId] = { x: latlng.lng, y: latlng.lat };
+      updateScaleModeLine();
+    });
+  };
   
   // Handle UI side effects based on action
   if (action === 'show-p2-toast') {
+    clearScaleModeMarkers();
     state.scaleMode.ui.marker1 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon(COLORS.SCALE),
-      draggable: false,
+      draggable: true,
     }).addTo(state.photoMap);
+    
+    createDragHandler(state.scaleMode.ui.marker1, 'p1');
+    
     showToast('Now tap the end point.');
     return true;
   }
@@ -1177,8 +1216,11 @@ function handleScaleModeClick(event) {
   if (action === 'prompt-distance') {
     state.scaleMode.ui.marker2 = L.marker(event.latlng, {
       icon: createScaleMarkerIcon(COLORS.SCALE),
-      draggable: false,
+      draggable: true,
     }).addTo(state.photoMap);
+    
+    createDragHandler(state.scaleMode.ui.marker2, 'p2');
+    
     updateScaleModeLine();
     promptForReferenceDistance();
     return true;
@@ -1321,6 +1363,12 @@ function cancelMeasureMode() {
 
 function handleMeasureModeClick(event) {
   const pixel = { x: event.latlng.lng, y: event.latlng.lat };
+  
+  // If there's a completed measurement, pin it automatically before starting a new one
+  if (state.measureMode.logic.active && state.measureMode.logic.step === null) {
+    pinCurrentMeasurement();
+  }
+
   const { state: newState, action } = handleMeasureModePoint(state.measureMode.logic, pixel);
   
   if (!action) {
@@ -1437,6 +1485,9 @@ function pinCurrentMeasurement() {
     line: null,
     label: null,
   };
+
+  // Reset logic state to allow new measurement
+  state.measureMode.logic = startMeasureModeState(state.measureMode.logic);
   
   updateMeasureButtonState();
 }
