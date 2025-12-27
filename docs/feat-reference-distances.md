@@ -109,7 +109,11 @@ We need to extend the application state to store the manual reference.
           }
           return `${feet}' ${inches}"`;
         }
-        default: return `${meters.toFixed(2)} m`;
+        default: {
+          if (meters < 0.01) return `${(meters * 1000).toFixed(1)} mm`;
+          if (meters < 1) return `${(meters * 100).toFixed(1)} cm`;
+          return `${meters.toFixed(2)} m`;
+        }
       }
     }
     ```
