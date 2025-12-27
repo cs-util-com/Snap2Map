@@ -228,6 +228,16 @@ function formatLatLon(value, positive, negative) {
   return `${value.toFixed(6)}° ${direction}`;
 }
 
+function getRotationLabel(degrees) {
+  const labels = {
+    0: 'North-up',
+    90: 'East-up',
+    180: 'South-up',
+    270: 'West-up',
+  };
+  return labels[degrees] || `${degrees}°`;
+}
+
 function checkScaleDisagreement() {
   if (!dom.scaleWarning) {
     return;
@@ -1029,7 +1039,8 @@ function handleDistanceModalConfirm() {
   saveSettings();
   
   if (state.pairs.length === 1) {
-    showToast('1-point calibration active (North-up). Add a second point to fix orientation and scale.', { tone: 'success', duration: 6000 });
+    const rotationLabel = getRotationLabel(state.defaultRotation);
+    showToast(`1-point calibration active (${rotationLabel}). Add a second point to fix orientation and scale.`, { tone: 'success', duration: 6000 });
   } else {
     showToast(`Scale set: ${formatDistance(result.referenceDistance.meters, state.preferredUnit)} = ${result.referenceDistance.metersPerPixel.toFixed(4)} m/px`, { tone: 'success' });
   }
@@ -1123,7 +1134,8 @@ function handleOneTapClick(pixel) {
       recalculateCalibration();
       
       if (state.referenceDistance) {
-        showToast('1-point calibration active (North-up). Add a second point to fix orientation and scale.', { tone: 'success', duration: 6000 });
+        const rotationLabel = getRotationLabel(state.defaultRotation);
+        showToast(`1-point calibration active (${rotationLabel}). Add a second point to fix orientation and scale.`, { tone: 'success', duration: 6000 });
       } else {
         showToast('Position pinned. Now set the scale to enable live view.', { duration: 5000 });
       }
