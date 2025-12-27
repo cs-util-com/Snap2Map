@@ -148,22 +148,33 @@ To support measurement mode when only GPS calibration exists (no manual referenc
 ```javascript
 /**
  * Extracts the scale (meters per pixel) from a calibration result.
- * For similarity transforms, scale = sqrt(a² + b²) where matrix is [a, b, tx; -b, a, ty].
- * Note: The calibration matrix maps pixels → geo coordinates, so this gives geo-units/pixel.
- * For lat/lon, additional conversion to meters is needed based on latitude.
+ * For similarity transforms, the scale is a direct property of the model.
+ * For affine transforms, an average scale is computed.
+ * Note: The calibration matrix maps pixels → ENU coordinates (meters),
+ * so the scale is already in meters/pixel.
  * 
  * @param {Object} calibrationResult - Result from calibrateMap()
  * @returns {number|null} - Scale in meters per pixel, or null if not extractable
  */
 function getMetersPerPixelFromCalibration(calibrationResult) {
-  if (!calibrationResult || !calibrationResult.matrix) return null;
-  const { a, b } = calibrationResult.matrix;
-  const geoUnitsPerPixel = Math.sqrt(a * a + b * b);
-  // Convert degrees to meters (approximate, using center latitude)
-  // 1 degree ≈ 111,320 meters at equator, adjusted by cos(lat)
-  const centerLat = calibrationResult.centerLat || 0;
-  const metersPerDegree = 111320 * Math.cos(centerLat * Math.PI / 180);
-  return geoUnitsPerPixel * metersPerDegree;
+  if (!calibrationResult || calibrationResult.status !== 'ok' || !calibrationResult.model) {
+    return null;
+  }
+  
+  const { model } = calibrationResult;
+
+  if (model.type === 'similarity' && typeof model.scale === 'number') {
+    return Math.abs(model.scale);
+  }
+
+  if (model.type === 'affine' && model.matrix) {
+    const { a, b, c, d } = model.matrix;
+    const scaleX = Math.hypot(a, b);
+    const scaleY = Math.hypot(c, d);
+    return (scaleX + scaleY) / 2;
+  }
+
+  return null;
 }
 ```
 
@@ -306,7 +317,7 @@ This phase implements the pure utility functions for scale management and extend
 - [x] Implemented `measureDistance(p1, p2, metersPerPixel)` - calculates distance between pixel points
 - [x] Implemented `formatDistance(meters, unit)` - formats for display (m, cm, mm, ft, ft-in)
 - [x] Implemented `compareScales(scale1, scale2, threshold)` - detects scale disagreement
-- [x] Exported constants: `METERS_PER_DEGREE_EQUATOR`, `METERS_TO_FEET`
+- [x] Exported constants: `METERS_TO_FEET`
 
 #### `src/scale/scale.test.js`
 - [x] 52 comprehensive unit tests covering all functions

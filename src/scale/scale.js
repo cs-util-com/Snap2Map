@@ -4,9 +4,6 @@
  * and formatting distances for display.
  */
 
-/** Meters per degree at equator (WGS84 approximation) */
-export const METERS_PER_DEGREE_EQUATOR = 111320;
-
 /** Conversion factor from meters to feet */
 export const METERS_TO_FEET = 3.28084;
 

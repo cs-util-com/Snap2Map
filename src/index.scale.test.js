@@ -9,7 +9,6 @@ describe('Scale and Measure UI integration', () => {
   let handleDistanceModalCancel;
   let cacheDom;
   let setupEventHandlers;
-  let loadPhotoMap;
   let confirmPair;
   let startOneTapMode;
   let handlePhotoClick;
@@ -158,7 +157,6 @@ describe('Scale and Measure UI integration', () => {
       handleDistanceModalCancel,
       cacheDom,
       setupEventHandlers,
-      loadPhotoMap,
       confirmPair,
       startOneTapMode,
       handlePhotoClick,
