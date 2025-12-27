@@ -10,11 +10,7 @@ function ensureWeights(length, weights) {
   return weights;
 }
 
-export function fitSimilarity(pairs, weights) {
-  if (pairs.length < 2) {
-    return null;
-  }
-
+function computeWeightedCentroids(pairs, weights) {
   const w = ensureWeights(pairs.length, weights);
   let weightSum = 0;
   let pixelCentroid = { x: 0, y: 0 };
@@ -33,8 +29,46 @@ export function fitSimilarity(pairs, weights) {
     return null;
   }
 
-  pixelCentroid = { x: pixelCentroid.x / weightSum, y: pixelCentroid.y / weightSum };
-  enuCentroid = { x: enuCentroid.x / weightSum, y: enuCentroid.y / weightSum };
+  return {
+    w,
+    weightSum,
+    pixelCentroid: { x: pixelCentroid.x / weightSum, y: pixelCentroid.y / weightSum },
+    enuCentroid: { x: enuCentroid.x / weightSum, y: enuCentroid.y / weightSum },
+  };
+}
+
+export function fitSimilarity1Point(pair, scale, rotation = 0) {
+  if (!pair || !pair.pixel || !pair.enu || !Number.isFinite(scale) || scale <= 0) {
+    return null;
+  }
+
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+
+  const tx = pair.enu.x - scale * (cos * pair.pixel.x - sin * pair.pixel.y);
+  const ty = pair.enu.y - scale * (sin * pair.pixel.x + cos * pair.pixel.y);
+
+  return {
+    type: 'similarity',
+    scale,
+    rotation,
+    cos,
+    sin,
+    translation: { x: tx, y: ty },
+  };
+}
+
+export function fitSimilarity(pairs, weights) {
+  if (pairs.length < 2) {
+    return null;
+  }
+
+  const centroids = computeWeightedCentroids(pairs, weights);
+  if (!centroids) {
+    return null;
+  }
+
+  const { w, pixelCentroid, enuCentroid } = centroids;
 
   // Precompute centered deltas to avoid duplicated code patterns
   const deltas = pairs.map((p, i) => {
@@ -93,6 +127,67 @@ export function fitSimilarity(pairs, weights) {
   return {
     type: 'similarity',
     scale,
+    rotation: theta,
+    cos,
+    sin,
+    translation: { x: translationX, y: translationY },
+  };
+}
+
+export function fitSimilarityFixedScale(pairs, fixedScale, weights) {
+  if (pairs.length < 2) {
+    return null;
+  }
+
+  if (!Number.isFinite(fixedScale) || fixedScale <= TOLERANCE) {
+    return null;
+  }
+
+  const centroids = computeWeightedCentroids(pairs, weights);
+  if (!centroids) {
+    return null;
+  }
+
+  const { w, pixelCentroid, enuCentroid } = centroids;
+
+  // Compute optimal rotation for the fixed scale
+  // We minimize sum of w_i * ||(s*R*p_i + t) - e_i||^2
+  // With fixed s, the optimal rotation angle is found from:
+  // theta = atan2(sum(w*(ey*px - ex*py)), sum(w*(ex*px + ey*py)))
+  let sumCross = 0;
+  let sumDot = 0;
+  let pixelVariance = 0;
+
+  for (let i = 0; i < pairs.length; i += 1) {
+    const weight = w[i];
+    const px = pairs[i].pixel.x - pixelCentroid.x;
+    const py = pairs[i].pixel.y - pixelCentroid.y;
+    const ex = pairs[i].enu.x - enuCentroid.x;
+    const ey = pairs[i].enu.y - enuCentroid.y;
+
+    // For fixed scale, the rotation that minimizes error:
+    // We want to align s*R*p with e
+    // This gives: theta = atan2(sum(w*(ey*px - ex*py)), sum(w*(ex*px + ey*py)))
+    sumCross += weight * (ey * px - ex * py);
+    sumDot += weight * (ex * px + ey * py);
+    pixelVariance += weight * (px * px + py * py);
+  }
+
+  // Degenerate case: all pixel points coincide, rotation is undefined
+  if (Math.abs(pixelVariance) < TOLERANCE) {
+    return null;
+  }
+
+  const theta = Math.atan2(sumCross, sumDot);
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+
+  const translationX = enuCentroid.x - fixedScale * (cos * pixelCentroid.x - sin * pixelCentroid.y);
+  const translationY = enuCentroid.y - fixedScale * (sin * pixelCentroid.x + cos * pixelCentroid.y);
+
+  return {
+    type: 'similarity',
+    scale: fixedScale,
     rotation: theta,
     cos,
     sin,
@@ -454,6 +549,8 @@ export function averageScaleFromJacobian(jacobian) {
 const api = {
   TOLERANCE,
   fitSimilarity,
+  fitSimilarityFixedScale,
+  fitSimilarity1Point,
   fitAffine,
   fitHomography,
   applyTransform,

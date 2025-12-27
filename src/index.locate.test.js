@@ -160,4 +160,41 @@ describe('OpenStreetMap locate control integration', () => {
 
     expect(locateControlInstance.start).toHaveBeenCalledTimes(1);
   });
+
+  it('sets osmGeoPrompted to true when permission is already granted (fallback path)', async () => {
+    loadModule({ includeLocateControlOn: false });
+    // Force state.osmLocateControl to be null
+    state.osmLocateControl = null;
+
+    // Mock navigator.permissions
+    const queryMock = jest.fn().mockResolvedValue({ state: 'granted' });
+    const originalPermissions = global.navigator.permissions;
+    global.navigator.permissions = { query: queryMock };
+
+    // Mock navigator.geolocation
+    const originalGeolocation = global.navigator.geolocation;
+    global.navigator.geolocation = {
+      getCurrentPosition: jest.fn((success) =>
+        success({
+          coords: { latitude: 10, longitude: 20, accuracy: 5 },
+          timestamp: Date.now(),
+        }),
+      ),
+    };
+
+    state.osmGeoPrompted = false;
+
+    maybePromptGeolocationForOsm();
+
+    // Since handleGeolocationPermission uses promises, we need to wait
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(queryMock).toHaveBeenCalledWith({ name: 'geolocation' });
+    // This is what the coworker says is missing
+    expect(state.osmGeoPrompted).toBe(true);
+
+    // Cleanup
+    global.navigator.permissions = originalPermissions;
+    global.navigator.geolocation = originalGeolocation;
+  });
 });

@@ -25,6 +25,44 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+async function fetchAndUpdate(request, cache) {
+  const response = await fetch(request);
+  if (response && response.ok) {
+    cache.put(request, response.clone());
+  }
+  return response;
+}
+
+async function getNavigationFallback(cache) {
+  const fallback = (await cache.match('/index.html')) || (await cache.match('/'));
+  return fallback || null;
+}
+
+async function handleShellOrNavigation(request, cache, cached) {
+  const isNavigation = request.mode === 'navigate';
+  try {
+    const response = await fetchAndUpdate(request, cache);
+    if (response && response.ok) {
+      return response;
+    }
+  } catch {
+    // network request failed, fall back to cache if possible
+  }
+
+  if (cached) {
+    return cached;
+  }
+
+  if (isNavigation) {
+    const fallback = await getNavigationFallback(cache);
+    if (fallback) {
+      return fallback;
+    }
+  }
+
+  return Response.error();
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') {
     return;
@@ -32,66 +70,30 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   const isSameOrigin = url.origin === self.location.origin;
-  const isNavigation = event.request.mode === 'navigate';
-  const isShellResource = isSameOrigin && SHELL_ASSETS.includes(url.pathname);
-
   if (!isSameOrigin) {
     return;
   }
+
+  const isNavigation = event.request.mode === 'navigate';
+  const isShellResource = SHELL_ASSETS.includes(url.pathname);
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(event.request);
 
-      const fetchAndUpdate = async () => {
-        const response = await fetch(event.request);
-        if (response && response.ok) {
-          cache.put(event.request, response.clone());
-        }
-        return response;
-      };
-
-      const getNavigationFallback = async () => {
-        const fallback = (await cache.match('/index.html')) || (await cache.match('/'));
-        return fallback || null;
-      };
-
       if (isNavigation || isShellResource) {
-        try {
-          const response = await fetchAndUpdate();
-          if (response) {
-            return response;
-          }
-        } catch (error) {
-          // network request failed, fall back to cache if possible
-        }
-
-        if (cached) {
-          return cached;
-        }
-
-        if (isNavigation) {
-          const fallback = await getNavigationFallback();
-          if (fallback) {
-            return fallback;
-          }
-        }
-
-        return Response.error();
+        return handleShellOrNavigation(event.request, cache, cached);
       }
 
       if (cached) {
-        fetchAndUpdate().catch(() => null);
+        fetchAndUpdate(event.request, cache).catch(() => null);
         return cached;
       }
 
       try {
-        return await fetchAndUpdate();
-      } catch (error) {
-        if (cached) {
-          return cached;
-        }
-        return Response.error();
+        return await fetchAndUpdate(event.request, cache);
+      } catch {
+        return cached || Response.error();
       }
     }),
   );
