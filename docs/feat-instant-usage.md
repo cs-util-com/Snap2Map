@@ -128,7 +128,7 @@ export function calibrateMap(pairs, userOptions = {}) {
 
 ## 4. Edge Cases & Considerations
 *   **Unstable 2-Point Fit**: If two GPS points are extremely close together, the rotation becomes numerically unstable. In this case, the system should either warn the user or offer to stick to the "North-up" assumption.
-*   **Missing Scale**: If the user provides 1 GPS point but hasn't set a scale yet, the "Live" mode remains disabled until the scale is defined (either because the user later decided to set the reference scale or because he decided to set a second gps reference point).
+*   **Missing Scale**: If a user provides one GPS point without having set a scale, "Live" mode remains disabled. It will be enabled once a scale is defined, either by setting a manual reference scale or by adding a second GPS reference point.
 
 ## 5. Development Progress Notes
 
