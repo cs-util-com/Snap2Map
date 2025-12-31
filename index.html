@@ -34,13 +34,25 @@
       padding: 3px 10px;
       font-size: 13px;
     }
+    /* Force crosshair cursor in precision modes - must override Leaflet's inline styles */
+    body.cursor-crosshair,
+    body.cursor-crosshair *,
     body.cursor-crosshair .leaflet-container,
     body.cursor-crosshair .leaflet-grab,
+    body.cursor-crosshair .leaflet-grabbing,
     body.cursor-crosshair .leaflet-dragging,
     body.cursor-crosshair .leaflet-interactive,
+    body.cursor-crosshair .leaflet-overlay-pane,
     body.cursor-crosshair .leaflet-pane,
     body.cursor-crosshair .leaflet-image-layer,
-    body.cursor-crosshair.leaflet-dragging {
+    body.cursor-crosshair .leaflet-tile-pane,
+    body.cursor-crosshair .leaflet-tile,
+    body.cursor-crosshair .leaflet-proxy,
+    body.cursor-crosshair .leaflet-zoom-animated,
+    .leaflet-container.leaflet-crosshair,
+    .leaflet-container.leaflet-crosshair .leaflet-interactive,
+    .leaflet-container.leaflet-crosshair .leaflet-pane,
+    .leaflet-container.leaflet-crosshair .leaflet-image-layer {
       cursor: crosshair !important;
     }
   </style>

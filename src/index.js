@@ -317,8 +317,15 @@ function updateMapCursor() {
     
   if (isAnyModeActive) {
     document.body.classList.add('cursor-crosshair');
+    // Also add to Leaflet container directly for maximum specificity
+    if (state.photoMap && state.photoMap.getContainer) {
+      state.photoMap.getContainer().classList.add('leaflet-crosshair');
+    }
   } else {
     document.body.classList.remove('cursor-crosshair');
+    if (state.photoMap && state.photoMap.getContainer) {
+      state.photoMap.getContainer().classList.remove('leaflet-crosshair');
+    }
   }
 }
 
