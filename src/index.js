@@ -305,6 +305,23 @@ function updateStatusText() {
   }
 
   updateInstantUsagePromptsVisibility();
+  updateMapCursor();
+}
+
+function updateMapCursor() {
+  if (!dom.photoMap) return;
+  
+  const isAnyModeActive = 
+    (state.activePair !== null) || 
+    (state.scaleMode.logic && state.scaleMode.logic.active) || 
+    (state.measureMode.logic && state.measureMode.logic.active) ||
+    (state.oneTapMode && state.oneTapMode.active);
+    
+  if (isAnyModeActive) {
+    dom.photoMap.classList.add('cursor-crosshair');
+  } else {
+    dom.photoMap.classList.remove('cursor-crosshair');
+  }
 }
 
 function hideInstantUsagePrompts() {
@@ -633,6 +650,7 @@ function beginPairMode() {
   if (!isGuidedActive()) {
     showToast('Tap the photo to drop the pixel anchor.');
   }
+  updateMapCursor();
 }
 
 function cancelPairMode() {
@@ -640,6 +658,7 @@ function cancelPairMode() {
   clearActivePairMarkers();
   updatePairStatus();
   dom.addPairButton.disabled = isGuidedActive();
+  updateMapCursor();
 }
 
 function showGuidedPairSavedToast(index) {
@@ -1095,6 +1114,7 @@ function startScaleMode() {
   
   setActiveView('photo');
   showToast('Tap the start point of a known distance.');
+  updateMapCursor();
 }
 
 function cancelScaleMode() {
@@ -1104,6 +1124,7 @@ function cancelScaleMode() {
   if (dom.setScaleButton) {
     dom.setScaleButton.disabled = !shouldEnableSetScaleButton(state.scaleMode.logic);
   }
+  updateMapCursor();
 }
 
 function startOneTapMode() {
@@ -1121,6 +1142,7 @@ function startOneTapMode() {
   }
   
   showToast('Tap your current location on the photo', { tone: 'info' });
+  updateMapCursor();
 }
 
 function cancelOneTapMode() {
@@ -1129,6 +1151,7 @@ function cancelOneTapMode() {
     dom.oneTapCalibrateButton.classList.remove('ring-2', 'ring-white', 'scale-105');
     dom.oneTapCalibrateButton.textContent = '📍 I am here';
   }
+  updateMapCursor();
 }
 
 function handleOneTapClick(pixel) {
@@ -1352,6 +1375,7 @@ function startMeasureMode() {
   setActiveView('photo');
   const sourceText = check.scale.source === 'manual' ? 'manual scale' : 'GPS calibration';
   showToast(`Measure mode (${sourceText}). Tap start point.`);
+  updateMapCursor();
 }
 
 function cancelMeasureMode() {
@@ -1359,6 +1383,7 @@ function cancelMeasureMode() {
   state.measureMode.logic = cancelMeasureModeState();
   
   updateMeasureButtonState();
+  updateMapCursor();
 }
 
 function handleMeasureModeClick(event) {
@@ -1898,6 +1923,7 @@ function cacheDom() {
   // Scale and measure mode buttons
   dom.setScaleButton = $('setScaleButton');
   dom.measureButton = $('measureButton');
+  dom.photoMap = $('photoMap');
   dom.clearMeasurementsButton = $('clearMeasurementsButton');
   dom.instantUsagePrompts = $('instantUsagePrompts');
   dom.instantSetScaleButton = $('instantSetScaleButton');
