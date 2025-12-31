@@ -309,8 +309,6 @@ function updateStatusText() {
 }
 
 function updateMapCursor() {
-  if (!dom.photoMap) return;
-  
   const isAnyModeActive = 
     (state.activePair !== null) || 
     (state.scaleMode.logic && state.scaleMode.logic.active) || 
@@ -318,9 +316,9 @@ function updateMapCursor() {
     (state.oneTapMode && state.oneTapMode.active);
     
   if (isAnyModeActive) {
-    dom.photoMap.classList.add('cursor-crosshair');
+    document.body.classList.add('cursor-crosshair');
   } else {
-    dom.photoMap.classList.remove('cursor-crosshair');
+    document.body.classList.remove('cursor-crosshair');
   }
 }
 
