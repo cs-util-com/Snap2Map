@@ -317,14 +317,18 @@ function updateMapCursor() {
     
   if (isAnyModeActive) {
     document.body.classList.add('cursor-crosshair');
-    // Also add to Leaflet container directly for maximum specificity
+    // Use inline style to override Leaflet's inline cursor styles
     if (state.photoMap && state.photoMap.getContainer) {
-      state.photoMap.getContainer().classList.add('leaflet-crosshair');
+      const container = state.photoMap.getContainer();
+      container.style.cursor = 'crosshair';
+      container.classList.add('leaflet-crosshair');
     }
   } else {
     document.body.classList.remove('cursor-crosshair');
     if (state.photoMap && state.photoMap.getContainer) {
-      state.photoMap.getContainer().classList.remove('leaflet-crosshair');
+      const container = state.photoMap.getContainer();
+      container.style.cursor = '';
+      container.classList.remove('leaflet-crosshair');
     }
   }
 }
@@ -860,7 +864,7 @@ function createDistanceLabelHtml({ meters, color, icon, showPin = false, showDel
   const pinHtml = showPin ? '<button class="pin-btn ml-2 px-1 bg-white/20 hover:bg-white/40 rounded" title="Pin measurement">📌</button>' : '';
   const deleteHtml = showDelete ? '<button class="delete-ref-btn ml-1 px-1 bg-white/20 hover:bg-white/40 rounded" title="Delete scale">✕</button>' : '';
   
-  return `<div class="distance-label ${extraClass}" style="background:${color};">${icon} ${distanceText}${pinHtml}${deleteHtml}</div>`;
+  return `<div class="distance-label ${extraClass}">${icon} ${distanceText}${pinHtml}${deleteHtml}</div>`;
 }
 
 function clearScaleModeMarkers() {
